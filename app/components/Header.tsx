@@ -111,7 +111,7 @@ export function HeaderMenu({
 
   return (
     <nav className={navClassName} role="navigation">
-      {menuItems.map((item, index) => {
+      {menuItems.map((item: {id: string; url?: string | null; title: string}, index: number) => {
         if (!item.url) return null;
 
         // if the url is internal, we strip the domain
@@ -288,7 +288,7 @@ function SearchResults({
   state: string;
   closeSearch: () => void;
   queriesDatalistId: string;
-  searchContainerRef: React.RefObject<HTMLDivElement>;
+  searchContainerRef: React.RefObject<HTMLDivElement | null>;
 }) {
   // Handle click outside to close search
   useEffect(() => {

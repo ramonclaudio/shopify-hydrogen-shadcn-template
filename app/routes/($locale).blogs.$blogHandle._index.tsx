@@ -8,7 +8,7 @@ import { Card, CardContent } from '~/components/ui/card';
 import { redirectIfHandleIsLocalized } from '~/lib/redirect';
 import type { Route } from './+types/blogs.$blogHandle._index';
 
-export const meta: Route.MetaFunction = ({ data }) => {
+export const meta: Route.MetaFunction = ({ data }: { data: any }) => {
   return [{ title: `Hydrogen | ${data?.blog.title ?? ''} blog` }];
 };
 

@@ -1,4 +1,4 @@
-import { CartForm, useOptimisticCart } from '@shopify/hydrogen';
+import { CartForm, useOptimisticCart, type OptimisticCartLine } from '@shopify/hydrogen';
 import { ShoppingBag } from 'lucide-react';
 import { Link } from 'react-router';
 import type { CartApiQueryFragment } from 'storefrontapi.generated';
@@ -34,7 +34,7 @@ export function CartMain({ layout, cart: originalCart }: CartMainProps) {
   const linesCount = Boolean(cart?.lines?.nodes?.length || 0);
   const withDiscount =
     cart &&
-    Boolean(cart?.discountCodes?.filter((code) => code.applicable)?.length);
+    Boolean(cart?.discountCodes?.filter((code: {code: string; applicable: boolean}) => code.applicable)?.length);
   const className = `cart-main ${withDiscount ? 'with-discount' : ''}`;
   const cartHasItems = cart?.totalQuantity ? cart.totalQuantity > 0 : false;
 
@@ -45,13 +45,13 @@ export function CartMain({ layout, cart: originalCart }: CartMainProps) {
         <>
           <div className="flex-1 overflow-y-auto min-h-0">
             <div aria-labelledby="cart-lines" className="space-y-0">
-              {(cart?.lines?.nodes ?? []).map((line) => (
+              {(cart?.lines?.nodes ?? []).map((line: OptimisticCartLine<CartApiQueryFragment>) => (
                 <CartLineItem key={line.id} line={line} layout={layout} />
               ))}
             </div>
             {cartHasItems && cart?.lines?.nodes && cart.lines.nodes.length > 0 && (
               <div className="border-t">
-                <CartClearButton lineIds={cart.lines.nodes.map((line) => line.id)} />
+                <CartClearButton lineIds={cart.lines.nodes.map((line: OptimisticCartLine<CartApiQueryFragment>) => line.id)} />
               </div>
             )}
           </div>

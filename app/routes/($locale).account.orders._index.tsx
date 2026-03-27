@@ -88,7 +88,7 @@ function OrdersTable({
   return (
     <div className="acccount-orders" aria-live="polite">
       {orders?.nodes.length ? (
-        <PaginatedResourceSection connection={orders}>
+        <PaginatedResourceSection<OrderItemFragment> connection={orders}>
           {({ node: order }) => <OrderItem key={order.id} order={order} />}
         </PaginatedResourceSection>
       ) : (

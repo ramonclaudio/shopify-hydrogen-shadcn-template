@@ -4,7 +4,7 @@ import { Separator } from '~/components/ui/separator';
 import { redirectIfHandleIsLocalized } from '~/lib/redirect';
 import type { Route } from './+types/pages.$handle';
 
-export const meta: Route.MetaFunction = ({ data }) => {
+export const meta: Route.MetaFunction = ({ data }: { data: any }) => {
   return [{ title: `Hydrogen | ${data?.page.title ?? ''}` }];
 };
 

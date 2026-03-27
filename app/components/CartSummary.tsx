@@ -1,4 +1,5 @@
 import { CartForm, Money, type OptimisticCart } from '@shopify/hydrogen';
+import type { MoneyV2, AppliedGiftCard } from '@shopify/hydrogen/storefront-api-types';
 import { XIcon } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import type { FetcherWithComponents } from 'react-router';
@@ -68,8 +69,8 @@ function CartDiscounts({
 }) {
   const codes: string[] =
     discountCodes
-      ?.filter((discount) => discount.applicable)
-      ?.map(({ code }) => code) || [];
+      ?.filter((discount: {code: string; applicable: boolean}) => discount.applicable)
+      ?.map(({ code }: {code: string; applicable: boolean}) => code) || [];
 
   return (
     <div className="space-y-3">
@@ -169,7 +170,7 @@ function CartGiftCard({
         <div>
           <Label className="text-sm font-medium mb-2">Applied Gift Cards</Label>
           <div className="space-y-2 mt-2">
-            {giftCardCodes.map((giftCard) => (
+            {giftCardCodes.map((giftCard: Pick<AppliedGiftCard, 'id' | 'lastCharacters'> & {amountUsed: Pick<MoneyV2, 'currencyCode' | 'amount'>}) => (
               <RemoveGiftCardForm key={giftCard.id} giftCardId={giftCard.id}>
                 <div className="flex items-center justify-between p-2 rounded-md border">
                   <div className="flex items-center gap-2">

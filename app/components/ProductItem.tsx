@@ -37,7 +37,7 @@ export function ProductItem({
 
   // Get primary collection for category label
   const collections = 'collections' in product ? product.collections?.nodes || [] : [];
-  const primaryCollection = collections.find(c =>
+  const primaryCollection = collections.find((c: {id: string; title: string; handle: string}) =>
     ['women', 'men', 'kids', 'accessories'].includes(c.handle.toLowerCase())
   ) || collections[0];
   const categoryLabel = primaryCollection?.title.toUpperCase() || 'SHOP';
@@ -45,10 +45,10 @@ export function ProductItem({
   // State for selected options
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>(() => {
     // Initialize with first available variant's options
-    const firstAvailableVariant = variants.find(v => v.availableForSale) || variants[0];
+    const firstAvailableVariant = variants.find((v: {id: string; title: string; availableForSale: boolean; selectedOptions: Array<{name: string; value: string}>; price: {amount: string; currencyCode: string}}) => v.availableForSale) || variants[0];
     if (!firstAvailableVariant) return {};
 
-    return firstAvailableVariant.selectedOptions.reduce((acc, option) => {
+    return firstAvailableVariant.selectedOptions.reduce((acc: Record<string, string>, option: {name: string; value: string}) => {
       acc[option.name] = option.value;
       return acc;
     }, {} as Record<string, string>);
@@ -58,8 +58,8 @@ export function ProductItem({
   const [showVariantSelector, setShowVariantSelector] = useState(false);
 
   // Find the currently selected variant based on selected options
-  const selectedVariant = variants.find(variant =>
-    variant.selectedOptions.every(option =>
+  const selectedVariant = variants.find((variant: {id: string; title: string; availableForSale: boolean; selectedOptions: Array<{name: string; value: string}>; price: {amount: string; currencyCode: string}}) =>
+    variant.selectedOptions.every((option: {name: string; value: string}) =>
       selectedOptions[option.name] === option.value
     )
   ) || variants[0];
@@ -164,17 +164,17 @@ export function ProductItem({
         >
           <div className="overflow-hidden">
             <div className="py-4 space-y-4">
-              {hasMultipleVariants && options.map((option) => (
+              {hasMultipleVariants && options.map((option: {name: string; optionValues: Array<{name: string}>}) => (
                 <div key={option.name} className="space-y-2">
                   <p className="text-xs font-semibold tracking-wider uppercase text-muted-foreground">
                     {option.name}
                   </p>
                   <div className="flex flex-wrap gap-1.5">
-                    {option.optionValues.map((value) => {
+                    {option.optionValues.map((value: {name: string}) => {
                       const isSelected = selectedOptions[option.name] === value.name;
                       // Check if this option value exists in any variant
-                      const variantWithOption = variants.find(v =>
-                        v.selectedOptions.some(o => o.name === option.name && o.value === value.name)
+                      const variantWithOption = variants.find((v: {id: string; title: string; availableForSale: boolean; selectedOptions: Array<{name: string; value: string}>; price: {amount: string; currencyCode: string}}) =>
+                        v.selectedOptions.some((o: {name: string; value: string}) => o.name === option.name && o.value === value.name)
                       );
                       const isOptionAvailable = variantWithOption?.availableForSale || false;
 

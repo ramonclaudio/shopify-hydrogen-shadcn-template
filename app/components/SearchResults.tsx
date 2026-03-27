@@ -1,12 +1,15 @@
 import { Image, Money, Pagination } from '@shopify/hydrogen';
 import { ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
 import { Link } from 'react-router';
+import type { RegularSearchQuery } from 'storefrontapi.generated';
 import { AspectRatio } from '~/components/ui/aspect-ratio';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { Spinner } from '~/components/ui/spinner';
 import { urlWithTrackingParams, type RegularSearchReturn } from '~/lib/search';
+
+type SearchProduct = RegularSearchQuery['products']['nodes'][number];
 
 type SearchItems = RegularSearchReturn['result']['items'];
 type PartialSearchResult<ItemType extends keyof SearchItems> = Pick<
@@ -54,7 +57,7 @@ function SearchResultsArticles({
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
-          {articles?.nodes?.map((article) => {
+          {articles?.nodes?.map((article: RegularSearchQuery['articles']['nodes'][number]) => {
             const articleUrl = urlWithTrackingParams({
               baseUrl: `/blogs/${article.handle}`,
               trackingParams: article.trackingParameters,
@@ -94,7 +97,7 @@ function SearchResultsPages({ term, pages }: PartialSearchResult<'pages'>) {
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
-          {pages?.nodes?.map((page) => {
+          {pages?.nodes?.map((page: RegularSearchQuery['pages']['nodes'][number]) => {
             const pageUrl = urlWithTrackingParams({
               baseUrl: `/pages/${page.handle}`,
               trackingParams: page.trackingParameters,
@@ -138,7 +141,7 @@ function SearchResultsProducts({
       <CardContent>
         <Pagination connection={products}>
           {({ nodes, isLoading, NextLink, PreviousLink }) => {
-            const ItemsMarkup = nodes.map((product) => {
+            const ItemsMarkup = nodes.map((product: SearchProduct) => {
               const productUrl = urlWithTrackingParams({
                 baseUrl: `/products/${product.handle}`,
                 trackingParams: product.trackingParameters,
@@ -169,9 +172,9 @@ function SearchResultsProducts({
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{product.title}</p>
                     {price && (
-                      <p className="text-sm text-muted-foreground">
+                      <span className="text-sm text-muted-foreground">
                         <Money data={price} />
-                      </p>
+                      </span>
                     )}
                   </div>
                 </Link>

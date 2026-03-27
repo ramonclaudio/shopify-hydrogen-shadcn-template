@@ -6,7 +6,7 @@ import { ProductItem } from '~/components/ProductItem';
 import { redirectIfHandleIsLocalized } from '~/lib/redirect';
 import type { Route } from './+types/collections.$handle';
 
-export const meta: Route.MetaFunction = ({ data }) => {
+export const meta: Route.MetaFunction = ({ data }: { data: any }) => {
   return [{ title: `Hydrogen | ${data?.collection.title ?? ''} Collection` }];
 };
 
