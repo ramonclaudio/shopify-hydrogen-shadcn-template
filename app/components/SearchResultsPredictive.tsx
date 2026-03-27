@@ -1,6 +1,7 @@
 import { Image, Money } from '@shopify/hydrogen';
 import React, { useEffect, useRef } from 'react';
 import { Link, useFetcher, type Fetcher } from 'react-router';
+import type { PredictiveSearchQuery } from 'storefrontapi.generated';
 import { AspectRatio } from '~/components/ui/aspect-ratio';
 import { Badge } from '~/components/ui/badge';
 import { Separator } from '~/components/ui/separator';
@@ -10,6 +11,8 @@ import {
   type PredictiveSearchReturn,
 } from '~/lib/search';
 import { useAside } from './Aside';
+
+type PredictiveItems = NonNullable<PredictiveSearchQuery['predictiveSearch']>;
 
 type PredictiveSearchItems = PredictiveSearchReturn['result']['items'];
 
@@ -97,7 +100,7 @@ function SearchResultsPredictiveArticles({
         <Badge variant="secondary" className="text-xs">{articles.length}</Badge>
       </div>
       <div className="space-y-1">
-        {articles.map((article) => {
+        {articles.map((article: PredictiveItems['articles'][number]) => {
           const articleUrl = urlWithTrackingParams({
             baseUrl: `/blogs/${article.blog.handle}/${article.handle}`,
             trackingParams: article.trackingParameters,
@@ -146,7 +149,7 @@ function SearchResultsPredictiveCollections({
         <Badge variant="secondary" className="text-xs">{collections.length}</Badge>
       </div>
       <div className="space-y-1">
-        {collections.map((collection) => {
+        {collections.map((collection: PredictiveItems['collections'][number]) => {
           const collectionUrl = urlWithTrackingParams({
             baseUrl: `/collections/${collection.handle}`,
             trackingParams: collection.trackingParameters,
@@ -195,7 +198,7 @@ function SearchResultsPredictivePages({
         <Badge variant="secondary" className="text-xs">{pages.length}</Badge>
       </div>
       <div className="space-y-1">
-        {pages.map((page) => {
+        {pages.map((page: PredictiveItems['pages'][number]) => {
           const pageUrl = urlWithTrackingParams({
             baseUrl: `/pages/${page.handle}`,
             trackingParams: page.trackingParameters,
@@ -233,7 +236,7 @@ function SearchResultsPredictiveProducts({
         <Badge variant="secondary" className="text-xs">{products.length}</Badge>
       </div>
       <div className="space-y-1">
-        {products.map((product) => {
+        {products.map((product: PredictiveItems['products'][number]) => {
           const productUrl = urlWithTrackingParams({
             baseUrl: `/products/${product.handle}`,
             trackingParams: product.trackingParameters,
@@ -288,7 +291,7 @@ function SearchResultsPredictiveQueries({
 
   return (
     <datalist id={queriesDatalistId}>
-      {queries.map((suggestion) => {
+      {queries.map((suggestion: PredictiveItems['queries'][number]) => {
         if (!suggestion) return null;
 
         return <option key={suggestion.text} value={suggestion.text} />;

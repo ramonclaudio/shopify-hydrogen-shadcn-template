@@ -253,7 +253,7 @@ async function regularSearch({
     throw new Error('No search data returned from Shopify API');
   }
 
-  const total = Object.values(items).reduce(
+  const total = (Object.values(items) as Array<{ nodes: unknown[] }>).reduce(
     (acc: number, { nodes }: { nodes: Array<unknown> }) => acc + nodes.length,
     0,
   );
@@ -434,7 +434,7 @@ async function predictiveSearch({
     throw new Error('No predictive search data returned from Shopify API');
   }
 
-  const total = Object.values(items).reduce(
+  const total = (Object.values(items) as unknown[][]).reduce(
     (acc: number, item: Array<unknown>) => acc + item.length,
     0,
   );

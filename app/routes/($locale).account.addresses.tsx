@@ -351,7 +351,7 @@ function ExistingAddresses({
 }: Pick<CustomerFragment, 'addresses' | 'defaultAddress'>) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {addresses.nodes.map((address) => (
+      {addresses.nodes.map((address: (typeof addresses.nodes)[number]) => (
         <Card key={address.id}>
           <CardHeader>
             <div className="flex items-center justify-between">

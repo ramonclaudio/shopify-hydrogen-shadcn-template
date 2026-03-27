@@ -79,7 +79,7 @@ function RecommendedProducts({
           {(response) => (
             <div className="grid grid-cols-1 gap-12 md:grid-cols-2">
               {response
-                ? response.products.nodes.map((product, index) => (
+                ? response.products.nodes.map((product: (typeof response.products.nodes)[number], index: number) => (
                   <ProductItem key={product.id} product={product} loading={index < 2 ? 'eager' : 'lazy'} />
                 ))
                 : null}

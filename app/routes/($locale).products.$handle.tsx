@@ -18,7 +18,7 @@ import { Skeleton } from '~/components/ui/skeleton';
 import { redirectIfHandleIsLocalized } from '~/lib/redirect';
 import type { Route } from './+types/products.$handle';
 
-export const meta: Route.MetaFunction = ({ data }) => {
+export const meta: Route.MetaFunction = ({ data }: { data: any }) => {
   return [
     { title: `Hydrogen | ${data?.product.title ?? ''}` },
     {
@@ -85,13 +85,13 @@ function loadDeferredData({ context }: Route.LoaderArgs, productId: string) {
       .query(RECOMMENDED_PRODUCTS_QUERY, {
         variables: { productId },
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error(error);
         return null;
       }),
     storefront
       .query(FALLBACK_PRODUCTS_QUERY)
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error(error);
         return null;
       }),

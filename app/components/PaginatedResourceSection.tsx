@@ -21,7 +21,7 @@ export function PaginatedResourceSection<NodesType>({
       {({ nodes, isLoading, PreviousLink, NextLink }) => {
         const resourcesMarkup = nodes.map((node, index) =>
           children({ node, index }),
-        );
+        ) as React.ReactNode[];
 
         return (
           <div className="space-y-6">
@@ -45,7 +45,7 @@ export function PaginatedResourceSection<NodesType>({
             {resourcesClassName ? (
               <div className={resourcesClassName}>{resourcesMarkup}</div>
             ) : (
-              resourcesMarkup
+              <>{resourcesMarkup}</>
             )}
             <div className="flex justify-center">
               <Button variant="outline" asChild disabled={isLoading}>

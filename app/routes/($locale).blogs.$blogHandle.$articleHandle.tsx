@@ -7,7 +7,7 @@ import { Separator } from '~/components/ui/separator';
 import { redirectIfHandleIsLocalized } from '~/lib/redirect';
 import type { Route } from './+types/blogs.$blogHandle.$articleHandle';
 
-export const meta: Route.MetaFunction = ({ data }) => {
+export const meta: Route.MetaFunction = ({ data }: { data: any }) => {
   return [{ title: `Hydrogen | ${data?.article.title ?? ''} article` }];
 };
 

@@ -21,7 +21,7 @@ import {
 import { CUSTOMER_ORDER_QUERY } from '~/graphql/customer-account/CustomerOrderQuery';
 import type { Route } from './+types/account.orders.$id';
 
-export const meta: Route.MetaFunction = ({ data }) => {
+export const meta: Route.MetaFunction = ({ data }: { data: any }) => {
   return [{ title: `Order ${data?.order?.name}` }];
 };
 
@@ -128,7 +128,7 @@ export default function OrderRoute() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {lineItems.map((lineItem) => (
+              {lineItems.map((lineItem: OrderLineItemFullFragment) => (
                 <OrderLineRow key={lineItem.id} lineItem={lineItem} />
               ))}
             </TableBody>

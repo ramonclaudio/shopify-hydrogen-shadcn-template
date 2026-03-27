@@ -58,7 +58,7 @@ export function CartLineItem({
         </Link>
         {selectedOptions.length > 0 && selectedOptions[0].value !== 'Default Title' && (
           <p className="text-xs text-muted-foreground mt-0.5">
-            {selectedOptions.map(option => option.value).join(', ')}
+            {selectedOptions.map((option: {name: string; value: string}) => option.value).join(', ')}
           </p>
         )}
         <div className="flex items-center justify-between mt-2">
