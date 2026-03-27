@@ -33,7 +33,6 @@
     "allowJs": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "baseUrl": ".",
     "types": [
       "@shopify/oxygen-workers-types",
       "react-router",
@@ -42,7 +41,7 @@
     ],
     "paths": {
       "~/*": [
-        "app/*"
+        "./app/*"
       ]
     },
     "noEmit": true,
