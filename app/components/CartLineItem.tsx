@@ -1,13 +1,13 @@
-import { CartForm, Image, type OptimisticCartLine } from '@shopify/hydrogen';
-import type { CartLineUpdateInput } from '@shopify/hydrogen/storefront-api-types';
-import { MinusIcon, PlusIcon, Trash2Icon } from 'lucide-react';
-import { Link } from 'react-router';
-import type { CartApiQueryFragment } from 'storefrontapi.generated';
-import type { CartLayout } from '~/components/CartMain';
-import { Button } from '~/components/ui/button';
-import { useVariantUrl } from '~/lib/variants';
-import { useAside } from './Aside';
-import { ProductPrice } from './ProductPrice';
+import {CartForm, Image, type OptimisticCartLine} from '@shopify/hydrogen';
+import type {CartLineUpdateInput} from '@shopify/hydrogen/storefront-api-types';
+import {MinusIcon, PlusIcon, Trash2Icon} from 'lucide-react';
+import {Link} from 'react-router';
+import type {CartApiQueryFragment} from 'storefrontapi.generated';
+import type {CartLayout} from '~/components/CartMain';
+import {Button} from '~/components/ui/button';
+import {useVariantUrl} from '~/lib/variants';
+import {useAside} from './Aside';
+import {ProductPrice} from './ProductPrice';
 
 type CartLine = OptimisticCartLine<CartApiQueryFragment>;
 
@@ -22,10 +22,10 @@ export function CartLineItem({
   layout: CartLayout;
   line: CartLine;
 }) {
-  const { id, merchandise } = line;
-  const { product, title, image, selectedOptions } = merchandise;
+  const {id, merchandise} = line;
+  const {product, title, image, selectedOptions} = merchandise;
   const lineItemUrl = useVariantUrl(product.handle, selectedOptions);
-  const { close } = useAside();
+  const {close} = useAside();
 
   return (
     <div key={id} className="flex gap-4 p-4 border-b last:border-b-0">
@@ -52,17 +52,21 @@ export function CartLineItem({
           }}
           className="hover:underline"
         >
-          <p className="font-medium text-sm">
-            {product.title}
-          </p>
+          <p className="font-medium text-sm">{product.title}</p>
         </Link>
-        {selectedOptions.length > 0 && selectedOptions[0].value !== 'Default Title' && (
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {selectedOptions.map((option: {name: string; value: string}) => option.value).join(', ')}
-          </p>
-        )}
+        {selectedOptions.length > 0 &&
+          selectedOptions[0].value !== 'Default Title' && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {selectedOptions
+                .map((option: {name: string; value: string}) => option.value)
+                .join(', ')}
+            </p>
+          )}
         <div className="flex items-center justify-between mt-2">
-          <ProductPrice price={line?.cost?.totalAmount} className="font-semibold text-base" />
+          <ProductPrice
+            price={line?.cost?.totalAmount}
+            className="font-semibold text-base"
+          />
           <CartLineQuantity line={line} />
         </div>
       </div>
@@ -75,16 +79,16 @@ export function CartLineItem({
  * These controls are disabled when the line item is new, and the server
  * hasn't yet responded that it was successfully added to the cart.
  */
-function CartLineQuantity({ line }: { line: CartLine }) {
+function CartLineQuantity({line}: {line: CartLine}) {
   if (!line || typeof line?.quantity === 'undefined') return null;
-  const { id: lineId, quantity, isOptimistic } = line;
+  const {id: lineId, quantity, isOptimistic} = line;
   const prevQuantity = Number(Math.max(0, quantity - 1).toFixed(0));
   const nextQuantity = Number((quantity + 1).toFixed(0));
 
   return (
     <div className="flex items-center gap-2">
       <div className="flex items-center gap-0 border rounded-md">
-        <CartLineUpdateButton lines={[{ id: lineId, quantity: prevQuantity }]}>
+        <CartLineUpdateButton lines={[{id: lineId, quantity: prevQuantity}]}>
           <Button
             variant="ghost"
             size="icon"
@@ -96,8 +100,10 @@ function CartLineQuantity({ line }: { line: CartLine }) {
             <MinusIcon className="h-3.5 w-3.5" />
           </Button>
         </CartLineUpdateButton>
-        <span className="w-8 text-center text-sm font-medium border-x">{quantity}</span>
-        <CartLineUpdateButton lines={[{ id: lineId, quantity: nextQuantity }]}>
+        <span className="w-8 text-center text-sm font-medium border-x">
+          {quantity}
+        </span>
+        <CartLineUpdateButton lines={[{id: lineId, quantity: nextQuantity}]}>
           <Button
             variant="ghost"
             size="icon"
@@ -132,7 +138,7 @@ function CartLineRemoveButton({
       fetcherKey={getUpdateKey(lineIds)}
       route="/cart"
       action={CartForm.ACTIONS.LinesRemove}
-      inputs={{ lineIds }}
+      inputs={{lineIds}}
     >
       <Button
         variant="ghost"
@@ -162,7 +168,7 @@ function CartLineUpdateButton({
       fetcherKey={getUpdateKey(lineIds)}
       route="/cart"
       action={CartForm.ACTIONS.LinesUpdate}
-      inputs={{ lines }}
+      inputs={{lines}}
     >
       {children}
     </CartForm>

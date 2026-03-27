@@ -1,16 +1,14 @@
-import { Suspense } from 'react';
-import { Await, Link, useLoaderData } from 'react-router';
-import type {
-  RecommendedProductsQuery,
-} from 'storefrontapi.generated';
-import { ProductItem } from '~/components/ProductItem';
-import { AspectRatio } from '~/components/ui/aspect-ratio';
-import { Button } from '~/components/ui/button';
-import { Skeleton } from '~/components/ui/skeleton';
-import type { Route } from './+types/_index';
+import {Suspense} from 'react';
+import {Await, Link, useLoaderData} from 'react-router';
+import type {RecommendedProductsQuery} from 'storefrontapi.generated';
+import {ProductItem} from '~/components/ProductItem';
+import {AspectRatio} from '~/components/ui/aspect-ratio';
+import {Button} from '~/components/ui/button';
+import {Skeleton} from '~/components/ui/skeleton';
+import type {Route} from './+types/_index';
 
 export const meta: Route.MetaFunction = () => {
-  return [{ title: 'Hydrogen | Home' }];
+  return [{title: 'Hydrogen | Home'}];
 };
 
 export async function loader(args: Route.LoaderArgs) {
@@ -20,14 +18,14 @@ export async function loader(args: Route.LoaderArgs) {
   // Await the critical data required to render initial state of the page
   const criticalData = await loadCriticalData(args);
 
-  return { ...deferredData, ...criticalData };
+  return {...deferredData, ...criticalData};
 }
 
 /**
  * Load data necessary for rendering content above the fold. This is the critical data
  * needed to render the page. If it's unavailable, the whole page should 400 or 500 error.
  */
-async function loadCriticalData({ context }: Route.LoaderArgs) {
+async function loadCriticalData({context}: Route.LoaderArgs) {
   return {};
 }
 
@@ -36,7 +34,7 @@ async function loadCriticalData({ context }: Route.LoaderArgs) {
  * fetched after the initial page load. If it's unavailable, the page should still 200.
  * Make sure to not throw any errors here, as it will cause the page to 500.
  */
-function loadDeferredData({ context }: Route.LoaderArgs) {
+function loadDeferredData({context}: Route.LoaderArgs) {
   const recommendedProducts = context.storefront
     .query(RECOMMENDED_PRODUCTS_QUERY)
     .catch((error: Error) => {
@@ -52,9 +50,7 @@ function loadDeferredData({ context }: Route.LoaderArgs) {
 
 export default function Homepage() {
   const data = useLoaderData<typeof loader>();
-  return (
-    <RecommendedProducts products={data.recommendedProducts} />
-  );
+  return <RecommendedProducts products={data.recommendedProducts} />;
 }
 
 function RecommendedProducts({
@@ -69,7 +65,10 @@ function RecommendedProducts({
           FEATURED PRODUCTS
         </h2>
         <Button variant="outline-black-rounded" asChild>
-          <Link to="/collections/all" className="text-xs font-semibold tracking-widest uppercase px-6 hover:scale-105 transition-transform">
+          <Link
+            to="/collections/all"
+            className="text-xs font-semibold tracking-widest uppercase px-6 hover:scale-105 transition-transform"
+          >
             VIEW ALL
           </Link>
         </Button>
@@ -79,9 +78,18 @@ function RecommendedProducts({
           {(response) => (
             <div className="grid grid-cols-1 gap-12 md:grid-cols-2">
               {response
-                ? response.products.nodes.map((product: (typeof response.products.nodes)[number], index: number) => (
-                  <ProductItem key={product.id} product={product} loading={index < 2 ? 'eager' : 'lazy'} />
-                ))
+                ? response.products.nodes.map(
+                    (
+                      product: (typeof response.products.nodes)[number],
+                      index: number,
+                    ) => (
+                      <ProductItem
+                        key={product.id}
+                        product={product}
+                        loading={index < 2 ? 'eager' : 'lazy'}
+                      />
+                    ),
+                  )
                 : null}
             </div>
           )}
@@ -94,7 +102,7 @@ function RecommendedProducts({
 function ProductsLoadingSkeleton() {
   return (
     <div className="grid grid-cols-1 gap-12 md:grid-cols-2">
-      {Array.from({ length: 4 }, (_, i) => (
+      {Array.from({length: 4}, (_, i) => (
         <div key={`skeleton-${i}`} className="space-y-4">
           <AspectRatio ratio={3 / 4}>
             <Skeleton className="h-full w-full rounded-lg" />

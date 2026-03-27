@@ -1,16 +1,16 @@
-import { Image, Money } from '@shopify/hydrogen';
-import React, { useEffect, useRef } from 'react';
-import { Link, useFetcher, type Fetcher } from 'react-router';
-import type { PredictiveSearchQuery } from 'storefrontapi.generated';
-import { AspectRatio } from '~/components/ui/aspect-ratio';
-import { Badge } from '~/components/ui/badge';
-import { Separator } from '~/components/ui/separator';
+import {Image, Money} from '@shopify/hydrogen';
+import React, {useEffect, useRef} from 'react';
+import {Link, useFetcher, type Fetcher} from 'react-router';
+import type {PredictiveSearchQuery} from 'storefrontapi.generated';
+import {AspectRatio} from '~/components/ui/aspect-ratio';
+import {Badge} from '~/components/ui/badge';
+import {Separator} from '~/components/ui/separator';
 import {
   getEmptyPredictiveSearchResult,
   urlWithTrackingParams,
   type PredictiveSearchReturn,
 } from '~/lib/search';
-import { useAside } from './Aside';
+import {useAside} from './Aside';
 
 type PredictiveItems = NonNullable<PredictiveSearchQuery['predictiveSearch']>;
 
@@ -49,7 +49,7 @@ export function SearchResultsPredictive({
   children,
 }: SearchResultsPredictiveProps) {
   const aside = useAside();
-  const { term, inputRef, fetcher, total, items } = usePredictiveSearch();
+  const {term, inputRef, fetcher, total, items} = usePredictiveSearch();
 
   /*
    * Utility that resets the search input
@@ -96,8 +96,12 @@ function SearchResultsPredictiveArticles({
   return (
     <div className="space-y-3" key="articles">
       <div className="flex items-center justify-between">
-        <h5 className="font-semibold text-sm text-muted-foreground">Articles</h5>
-        <Badge variant="secondary" className="text-xs">{articles.length}</Badge>
+        <h5 className="font-semibold text-sm text-muted-foreground">
+          Articles
+        </h5>
+        <Badge variant="secondary" className="text-xs">
+          {articles.length}
+        </Badge>
       </div>
       <div className="space-y-1">
         {articles.map((article: PredictiveItems['articles'][number]) => {
@@ -145,39 +149,45 @@ function SearchResultsPredictiveCollections({
   return (
     <div className="space-y-3" key="collections">
       <div className="flex items-center justify-between">
-        <h5 className="font-semibold text-sm text-muted-foreground">Collections</h5>
-        <Badge variant="secondary" className="text-xs">{collections.length}</Badge>
+        <h5 className="font-semibold text-sm text-muted-foreground">
+          Collections
+        </h5>
+        <Badge variant="secondary" className="text-xs">
+          {collections.length}
+        </Badge>
       </div>
       <div className="space-y-1">
-        {collections.map((collection: PredictiveItems['collections'][number]) => {
-          const collectionUrl = urlWithTrackingParams({
-            baseUrl: `/collections/${collection.handle}`,
-            trackingParams: collection.trackingParameters,
-            term: term.current,
-          });
+        {collections.map(
+          (collection: PredictiveItems['collections'][number]) => {
+            const collectionUrl = urlWithTrackingParams({
+              baseUrl: `/collections/${collection.handle}`,
+              trackingParams: collection.trackingParameters,
+              term: term.current,
+            });
 
-          return (
-            <Link
-              key={collection.id}
-              onClick={closeSearch}
-              to={collectionUrl}
-              className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors"
-            >
-              {collection.image?.url && (
-                <div className="flex-shrink-0 w-12 h-12">
-                  <AspectRatio ratio={1}>
-                    <Image
-                      alt={collection.image.altText ?? ''}
-                      src={collection.image.url}
-                      className="h-full w-full object-cover rounded"
-                    />
-                  </AspectRatio>
-                </div>
-              )}
-              <span className="text-sm truncate">{collection.title}</span>
-            </Link>
-          );
-        })}
+            return (
+              <Link
+                key={collection.id}
+                onClick={closeSearch}
+                to={collectionUrl}
+                className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors"
+              >
+                {collection.image?.url && (
+                  <div className="flex-shrink-0 w-12 h-12">
+                    <AspectRatio ratio={1}>
+                      <Image
+                        alt={collection.image.altText ?? ''}
+                        src={collection.image.url}
+                        className="h-full w-full object-cover rounded"
+                      />
+                    </AspectRatio>
+                  </div>
+                )}
+                <span className="text-sm truncate">{collection.title}</span>
+              </Link>
+            );
+          },
+        )}
       </div>
       <Separator />
     </div>
@@ -195,7 +205,9 @@ function SearchResultsPredictivePages({
     <div className="space-y-3" key="pages">
       <div className="flex items-center justify-between">
         <h5 className="font-semibold text-sm text-muted-foreground">Pages</h5>
-        <Badge variant="secondary" className="text-xs">{pages.length}</Badge>
+        <Badge variant="secondary" className="text-xs">
+          {pages.length}
+        </Badge>
       </div>
       <div className="space-y-1">
         {pages.map((page: PredictiveItems['pages'][number]) => {
@@ -232,8 +244,12 @@ function SearchResultsPredictiveProducts({
   return (
     <div className="space-y-3" key="products">
       <div className="flex items-center justify-between">
-        <h5 className="font-semibold text-sm text-muted-foreground">Products</h5>
-        <Badge variant="secondary" className="text-xs">{products.length}</Badge>
+        <h5 className="font-semibold text-sm text-muted-foreground">
+          Products
+        </h5>
+        <Badge variant="secondary" className="text-xs">
+          {products.length}
+        </Badge>
       </div>
       <div className="space-y-1">
         {products.map((product: PredictiveItems['products'][number]) => {
@@ -326,7 +342,7 @@ function SearchResultsPredictiveEmpty({
  * '''
  **/
 function usePredictiveSearch(): UsePredictiveSearchReturn {
-  const fetcher = useFetcher<PredictiveSearchReturn>({ key: 'search' });
+  const fetcher = useFetcher<PredictiveSearchReturn>({key: 'search'});
   const term = useRef<string>('');
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -341,8 +357,8 @@ function usePredictiveSearch(): UsePredictiveSearchReturn {
     }
   }, []);
 
-  const { items, total } =
+  const {items, total} =
     fetcher?.data?.result ?? getEmptyPredictiveSearchResult();
 
-  return { items, total, inputRef, term, fetcher };
+  return {items, total, inputRef, term, fetcher};
 }

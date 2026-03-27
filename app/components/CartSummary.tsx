@@ -1,23 +1,26 @@
-import { CartForm, Money, type OptimisticCart } from '@shopify/hydrogen';
-import type { MoneyV2, AppliedGiftCard } from '@shopify/hydrogen/storefront-api-types';
-import { XIcon } from 'lucide-react';
-import { useEffect, useRef } from 'react';
-import type { FetcherWithComponents } from 'react-router';
-import { Link, useFetcher } from 'react-router';
-import type { CartApiQueryFragment } from 'storefrontapi.generated';
-import type { CartLayout } from '~/components/CartMain';
-import { Badge } from '~/components/ui/badge';
-import { Button } from '~/components/ui/button';
-import { Input } from '~/components/ui/input';
-import { Label } from '~/components/ui/label';
-import { Separator } from '~/components/ui/separator';
+import {CartForm, Money, type OptimisticCart} from '@shopify/hydrogen';
+import type {
+  MoneyV2,
+  AppliedGiftCard,
+} from '@shopify/hydrogen/storefront-api-types';
+import {XIcon} from 'lucide-react';
+import {useEffect, useRef} from 'react';
+import type {FetcherWithComponents} from 'react-router';
+import {Link, useFetcher} from 'react-router';
+import type {CartApiQueryFragment} from 'storefrontapi.generated';
+import type {CartLayout} from '~/components/CartMain';
+import {Badge} from '~/components/ui/badge';
+import {Button} from '~/components/ui/button';
+import {Input} from '~/components/ui/input';
+import {Label} from '~/components/ui/label';
+import {Separator} from '~/components/ui/separator';
 
 type CartSummaryProps = {
   cart: OptimisticCart<CartApiQueryFragment | null>;
   layout: CartLayout;
 };
 
-export function CartSummary({ cart, layout }: CartSummaryProps) {
+export function CartSummary({cart, layout}: CartSummaryProps) {
   const className =
     layout === 'page' ? 'cart-summary-page' : 'cart-summary-aside';
 
@@ -50,7 +53,7 @@ export function CartSummary({ cart, layout }: CartSummaryProps) {
   );
 }
 
-function CartCheckoutActions({ checkoutUrl }: { checkoutUrl?: string }) {
+function CartCheckoutActions({checkoutUrl}: {checkoutUrl?: string}) {
   if (!checkoutUrl) return null;
 
   return (
@@ -69,8 +72,10 @@ function CartDiscounts({
 }) {
   const codes: string[] =
     discountCodes
-      ?.filter((discount: {code: string; applicable: boolean}) => discount.applicable)
-      ?.map(({ code }: {code: string; applicable: boolean}) => code) || [];
+      ?.filter(
+        (discount: {code: string; applicable: boolean}) => discount.applicable,
+      )
+      ?.map(({code}: {code: string; applicable: boolean}) => code) || [];
 
   return (
     <div className="space-y-3">
@@ -147,7 +152,7 @@ function CartGiftCard({
 }) {
   const appliedGiftCardCodes = useRef<string[]>([]);
   const giftCardCodeInput = useRef<HTMLInputElement>(null);
-  const giftCardAddFetcher = useFetcher({ key: 'gift-card-add' });
+  const giftCardAddFetcher = useFetcher({key: 'gift-card-add'});
 
   // Clear the gift card code input after the gift card is added
   useEffect(() => {
@@ -170,21 +175,29 @@ function CartGiftCard({
         <div>
           <Label className="text-sm font-medium mb-2">Applied Gift Cards</Label>
           <div className="space-y-2 mt-2">
-            {giftCardCodes.map((giftCard: Pick<AppliedGiftCard, 'id' | 'lastCharacters'> & {amountUsed: Pick<MoneyV2, 'currencyCode' | 'amount'>}) => (
-              <RemoveGiftCardForm key={giftCard.id} giftCardId={giftCard.id}>
-                <div className="flex items-center justify-between p-2 rounded-md border">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline">***{giftCard.lastCharacters}</Badge>
-                    <span className="text-sm font-medium">
-                      <Money data={giftCard.amountUsed} />
-                    </span>
+            {giftCardCodes.map(
+              (
+                giftCard: Pick<AppliedGiftCard, 'id' | 'lastCharacters'> & {
+                  amountUsed: Pick<MoneyV2, 'currencyCode' | 'amount'>;
+                },
+              ) => (
+                <RemoveGiftCardForm key={giftCard.id} giftCardId={giftCard.id}>
+                  <div className="flex items-center justify-between p-2 rounded-md border">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">
+                        ***{giftCard.lastCharacters}
+                      </Badge>
+                      <span className="text-sm font-medium">
+                        <Money data={giftCard.amountUsed} />
+                      </span>
+                    </div>
+                    <Button type="submit" variant="ghost" size="sm">
+                      <XIcon className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <Button type="submit" variant="ghost" size="sm">
-                    <XIcon className="h-4 w-4" />
-                  </Button>
-                </div>
-              </RemoveGiftCardForm>
-            ))}
+                </RemoveGiftCardForm>
+              ),
+            )}
           </div>
         </div>
       )}

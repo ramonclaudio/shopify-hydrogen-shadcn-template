@@ -1,13 +1,13 @@
-import { Image, Money, Pagination } from '@shopify/hydrogen';
-import { ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
-import { Link } from 'react-router';
-import type { RegularSearchQuery } from 'storefrontapi.generated';
-import { AspectRatio } from '~/components/ui/aspect-ratio';
-import { Badge } from '~/components/ui/badge';
-import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
-import { Spinner } from '~/components/ui/spinner';
-import { urlWithTrackingParams, type RegularSearchReturn } from '~/lib/search';
+import {Image, Money, Pagination} from '@shopify/hydrogen';
+import {ChevronDownIcon, ChevronUpIcon} from 'lucide-react';
+import {Link} from 'react-router';
+import type {RegularSearchQuery} from 'storefrontapi.generated';
+import {AspectRatio} from '~/components/ui/aspect-ratio';
+import {Badge} from '~/components/ui/badge';
+import {Button} from '~/components/ui/button';
+import {Card, CardContent, CardHeader, CardTitle} from '~/components/ui/card';
+import {Spinner} from '~/components/ui/spinner';
+import {urlWithTrackingParams, type RegularSearchReturn} from '~/lib/search';
 
 type SearchProduct = RegularSearchQuery['products']['nodes'][number];
 
@@ -19,7 +19,7 @@ type PartialSearchResult<ItemType extends keyof SearchItems> = Pick<
   Pick<RegularSearchReturn, 'term'>;
 
 type SearchResultsProps = RegularSearchReturn & {
-  children: (args: SearchItems & { term: string }) => React.ReactNode;
+  children: (args: SearchItems & {term: string}) => React.ReactNode;
 };
 
 export function SearchResults({
@@ -31,7 +31,7 @@ export function SearchResults({
     return null;
   }
 
-  return children({ ...result.items, term });
+  return children({...result.items, term});
 }
 
 SearchResults.Articles = SearchResultsArticles;
@@ -57,32 +57,34 @@ function SearchResultsArticles({
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
-          {articles?.nodes?.map((article: RegularSearchQuery['articles']['nodes'][number]) => {
-            const articleUrl = urlWithTrackingParams({
-              baseUrl: `/blogs/${article.handle}`,
-              trackingParams: article.trackingParameters,
-              term,
-            });
+          {articles?.nodes?.map(
+            (article: RegularSearchQuery['articles']['nodes'][number]) => {
+              const articleUrl = urlWithTrackingParams({
+                baseUrl: `/blogs/${article.handle}`,
+                trackingParams: article.trackingParameters,
+                term,
+              });
 
-            return (
-              <div key={article.id}>
-                <Link
-                  prefetch="intent"
-                  to={articleUrl}
-                  className="block p-3 rounded-lg hover:bg-muted transition-colors"
-                >
-                  <p className="font-medium">{article.title}</p>
-                </Link>
-              </div>
-            );
-          })}
+              return (
+                <div key={article.id}>
+                  <Link
+                    prefetch="intent"
+                    to={articleUrl}
+                    className="block p-3 rounded-lg hover:bg-muted transition-colors"
+                  >
+                    <p className="font-medium">{article.title}</p>
+                  </Link>
+                </div>
+              );
+            },
+          )}
         </div>
       </CardContent>
     </Card>
   );
 }
 
-function SearchResultsPages({ term, pages }: PartialSearchResult<'pages'>) {
+function SearchResultsPages({term, pages}: PartialSearchResult<'pages'>) {
   if (!pages?.nodes.length) {
     return null;
   }
@@ -97,25 +99,27 @@ function SearchResultsPages({ term, pages }: PartialSearchResult<'pages'>) {
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
-          {pages?.nodes?.map((page: RegularSearchQuery['pages']['nodes'][number]) => {
-            const pageUrl = urlWithTrackingParams({
-              baseUrl: `/pages/${page.handle}`,
-              trackingParams: page.trackingParameters,
-              term,
-            });
+          {pages?.nodes?.map(
+            (page: RegularSearchQuery['pages']['nodes'][number]) => {
+              const pageUrl = urlWithTrackingParams({
+                baseUrl: `/pages/${page.handle}`,
+                trackingParams: page.trackingParameters,
+                term,
+              });
 
-            return (
-              <div key={page.id}>
-                <Link
-                  prefetch="intent"
-                  to={pageUrl}
-                  className="block p-3 rounded-lg hover:bg-muted transition-colors"
-                >
-                  <p className="font-medium">{page.title}</p>
-                </Link>
-              </div>
-            );
-          })}
+              return (
+                <div key={page.id}>
+                  <Link
+                    prefetch="intent"
+                    to={pageUrl}
+                    className="block p-3 rounded-lg hover:bg-muted transition-colors"
+                  >
+                    <p className="font-medium">{page.title}</p>
+                  </Link>
+                </div>
+              );
+            },
+          )}
         </div>
       </CardContent>
     </Card>
@@ -140,7 +144,7 @@ function SearchResultsProducts({
       </CardHeader>
       <CardContent>
         <Pagination connection={products}>
-          {({ nodes, isLoading, NextLink, PreviousLink }) => {
+          {({nodes, isLoading, NextLink, PreviousLink}) => {
             const ItemsMarkup = nodes.map((product: SearchProduct) => {
               const productUrl = urlWithTrackingParams({
                 baseUrl: `/products/${product.handle}`,

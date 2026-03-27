@@ -1,16 +1,16 @@
-import { type MappedProductOptions } from '@shopify/hydrogen';
+import {type MappedProductOptions} from '@shopify/hydrogen';
 import type {
   Maybe,
   ProductOptionValueSwatch,
 } from '@shopify/hydrogen/storefront-api-types';
-import { Heart, ShoppingBag } from 'lucide-react';
-import { Link, useNavigate } from 'react-router';
-import type { ProductFragment } from 'storefrontapi.generated';
-import { Button } from '~/components/ui/button';
-import { Label } from '~/components/ui/label';
-import { cn } from '~/lib/utils';
-import { AddToCartButton } from './AddToCartButton';
-import { useAside } from './Aside';
+import {Heart, ShoppingBag} from 'lucide-react';
+import {Link, useNavigate} from 'react-router';
+import type {ProductFragment} from 'storefrontapi.generated';
+import {Button} from '~/components/ui/button';
+import {Label} from '~/components/ui/label';
+import {cn} from '~/lib/utils';
+import {AddToCartButton} from './AddToCartButton';
+import {useAside} from './Aside';
 
 export function ProductForm({
   productOptions,
@@ -20,7 +20,7 @@ export function ProductForm({
   selectedVariant: ProductFragment['selectedOrFirstAvailableVariant'];
 }) {
   const navigate = useNavigate();
-  const { open } = useAside();
+  const {open} = useAside();
   return (
     <div className="space-y-6">
       {productOptions.map((option) => {
@@ -29,7 +29,9 @@ export function ProductForm({
 
         return (
           <div key={option.name} className="space-y-3">
-            <Label className="text-sm font-semibold tracking-widest uppercase">{option.name}</Label>
+            <Label className="text-sm font-semibold tracking-widest uppercase">
+              {option.name}
+            </Label>
             <div className="flex flex-wrap gap-2">
               {option.optionValues.map((value) => {
                 const {
@@ -107,12 +109,12 @@ export function ProductForm({
           lines={
             selectedVariant
               ? [
-                {
-                  merchandiseId: selectedVariant.id,
-                  quantity: 1,
-                  selectedVariant,
-                },
-              ]
+                  {
+                    merchandiseId: selectedVariant.id,
+                    quantity: 1,
+                    selectedVariant,
+                  },
+                ]
               : []
           }
           className="w-full uppercase gap-3 tracking-wider"
@@ -121,11 +123,7 @@ export function ProductForm({
           <ShoppingBag className="h-5 w-5" />
           {selectedVariant?.availableForSale ? 'Add to cart' : 'Sold out'}
         </AddToCartButton>
-        <Button
-          variant="outline"
-          size="lg"
-          type="button"
-        >
+        <Button variant="outline" size="lg" type="button">
           <Heart className="h-5 w-5" />
           <span className="sr-only">Add to wishlist</span>
         </Button>

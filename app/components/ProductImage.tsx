@@ -1,16 +1,16 @@
-import { Image } from '@shopify/hydrogen';
-import type { ProductVariantFragment } from 'storefrontapi.generated';
-import { AspectRatio } from '~/components/ui/aspect-ratio';
-import { Badge } from '~/components/ui/badge';
-import { Card, CardContent } from '~/components/ui/card';
-import { Skeleton } from '~/components/ui/skeleton';
+import {Image} from '@shopify/hydrogen';
+import type {ProductVariantFragment} from 'storefrontapi.generated';
+import {AspectRatio} from '~/components/ui/aspect-ratio';
+import {Badge} from '~/components/ui/badge';
+import {Card, CardContent} from '~/components/ui/card';
+import {Skeleton} from '~/components/ui/skeleton';
 
 export function ProductImage({
   image,
   badge,
 }: {
   image: ProductVariantFragment['image'];
-  badge?: { label: string; variant?: 'default' | 'secondary' | 'destructive' };
+  badge?: {label: string; variant?: 'default' | 'secondary' | 'destructive'};
 }) {
   if (!image) {
     return (

@@ -1,9 +1,9 @@
-import type { CustomerAddressInput } from '@shopify/hydrogen/customer-account-api-types';
+import type {CustomerAddressInput} from '@shopify/hydrogen/customer-account-api-types';
 import type {
   AddressFragment,
   CustomerFragment,
 } from 'customer-accountapi.generated';
-import { AlertCircle, Plus, Trash2 } from 'lucide-react';
+import {AlertCircle, Plus, Trash2} from 'lucide-react';
 import {
   data,
   Form,
@@ -12,18 +12,18 @@ import {
   useOutletContext,
   type Fetcher,
 } from 'react-router';
-import { Badge } from '~/components/ui/badge';
-import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
-import { Checkbox } from '~/components/ui/checkbox';
-import { Input } from '~/components/ui/input';
-import { Label } from '~/components/ui/label';
+import {Badge} from '~/components/ui/badge';
+import {Button} from '~/components/ui/button';
+import {Card, CardContent, CardHeader, CardTitle} from '~/components/ui/card';
+import {Checkbox} from '~/components/ui/checkbox';
+import {Input} from '~/components/ui/input';
+import {Label} from '~/components/ui/label';
 import {
   CREATE_ADDRESS_MUTATION,
   DELETE_ADDRESS_MUTATION,
   UPDATE_ADDRESS_MUTATION,
 } from '~/graphql/customer-account/CustomerAddressMutations';
-import type { Route } from './+types/account.addresses';
+import type {Route} from './+types/account.addresses';
 
 export type ActionResponse = {
   addressId?: string | null;
@@ -35,17 +35,17 @@ export type ActionResponse = {
 };
 
 export const meta: Route.MetaFunction = () => {
-  return [{ title: 'Addresses' }];
+  return [{title: 'Addresses'}];
 };
 
-export async function loader({ context }: Route.LoaderArgs) {
+export async function loader({context}: Route.LoaderArgs) {
   context.customerAccount.handleAuthStatus();
 
   return {};
 }
 
-export async function action({ request, context }: Route.ActionArgs) {
-  const { customerAccount } = context;
+export async function action({request, context}: Route.ActionArgs) {
+  const {customerAccount} = context;
 
   try {
     const form = await request.formData();
@@ -61,7 +61,7 @@ export async function action({ request, context }: Route.ActionArgs) {
     const isLoggedIn = await customerAccount.isLoggedIn();
     if (!isLoggedIn) {
       return data(
-        { error: { [addressId]: 'Unauthorized' } },
+        {error: {[addressId]: 'Unauthorized'}},
         {
           status: 401,
         },
@@ -96,7 +96,7 @@ export async function action({ request, context }: Route.ActionArgs) {
       case 'POST': {
         // handle new address creation
         try {
-          const { data, errors } = await customerAccount.mutate(
+          const {data, errors} = await customerAccount.mutate(
             CREATE_ADDRESS_MUTATION,
             {
               variables: {
@@ -127,14 +127,14 @@ export async function action({ request, context }: Route.ActionArgs) {
         } catch (error: unknown) {
           if (error instanceof Error) {
             return data(
-              { error: { [addressId]: error.message } },
+              {error: {[addressId]: error.message}},
               {
                 status: 400,
               },
             );
           }
           return data(
-            { error: { [addressId]: error } },
+            {error: {[addressId]: error}},
             {
               status: 400,
             },
@@ -145,7 +145,7 @@ export async function action({ request, context }: Route.ActionArgs) {
       case 'PUT': {
         // handle address updates
         try {
-          const { data, errors } = await customerAccount.mutate(
+          const {data, errors} = await customerAccount.mutate(
             UPDATE_ADDRESS_MUTATION,
             {
               variables: {
@@ -177,14 +177,14 @@ export async function action({ request, context }: Route.ActionArgs) {
         } catch (error: unknown) {
           if (error instanceof Error) {
             return data(
-              { error: { [addressId]: error.message } },
+              {error: {[addressId]: error.message}},
               {
                 status: 400,
               },
             );
           }
           return data(
-            { error: { [addressId]: error } },
+            {error: {[addressId]: error}},
             {
               status: 400,
             },
@@ -195,7 +195,7 @@ export async function action({ request, context }: Route.ActionArgs) {
       case 'DELETE': {
         // handles address deletion
         try {
-          const { data, errors } = await customerAccount.mutate(
+          const {data, errors} = await customerAccount.mutate(
             DELETE_ADDRESS_MUTATION,
             {
               variables: {
@@ -217,18 +217,18 @@ export async function action({ request, context }: Route.ActionArgs) {
             throw new Error('Customer address delete failed.');
           }
 
-          return { error: null, deletedAddress: addressId };
+          return {error: null, deletedAddress: addressId};
         } catch (error: unknown) {
           if (error instanceof Error) {
             return data(
-              { error: { [addressId]: error.message } },
+              {error: {[addressId]: error.message}},
               {
                 status: 400,
               },
             );
           }
           return data(
-            { error: { [addressId]: error } },
+            {error: {[addressId]: error}},
             {
               status: 400,
             },
@@ -238,7 +238,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 
       default: {
         return data(
-          { error: { [addressId]: 'Method not allowed' } },
+          {error: {[addressId]: 'Method not allowed'}},
           {
             status: 405,
           },
@@ -248,14 +248,14 @@ export async function action({ request, context }: Route.ActionArgs) {
   } catch (error: unknown) {
     if (error instanceof Error) {
       return data(
-        { error: error.message },
+        {error: error.message},
         {
           status: 400,
         },
       );
     }
     return data(
-      { error },
+      {error},
       {
         status: 400,
       },
@@ -264,8 +264,8 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function Addresses() {
-  const { customer } = useOutletContext<{ customer: CustomerFragment }>();
-  const { defaultAddress, addresses } = customer;
+  const {customer} = useOutletContext<{customer: CustomerFragment}>();
+  const {defaultAddress, addresses} = customer;
 
   return (
     <div className="space-y-8">
@@ -329,7 +329,7 @@ function NewAddressForm() {
       address={newAddress}
       defaultAddress={null}
     >
-      {({ stateForMethod }) => (
+      {({stateForMethod}) => (
         <Button
           disabled={stateForMethod('POST') !== 'idle'}
           formMethod="POST"
@@ -338,7 +338,9 @@ function NewAddressForm() {
           className="w-full"
         >
           <Plus className="h-4 w-4 mr-2" />
-          {stateForMethod('POST') !== 'idle' ? 'Creating Address...' : 'Create Address'}
+          {stateForMethod('POST') !== 'idle'
+            ? 'Creating Address...'
+            : 'Create Address'}
         </Button>
       )}
     </AddressForm>
@@ -358,9 +360,7 @@ function ExistingAddresses({
               <CardTitle className="text-lg">
                 {address.firstName} {address.lastName}
               </CardTitle>
-              {defaultAddress?.id === address.id && (
-                <Badge>Default</Badge>
-              )}
+              {defaultAddress?.id === address.id && <Badge>Default</Badge>}
             </div>
           </CardHeader>
           <CardContent>
@@ -369,7 +369,7 @@ function ExistingAddresses({
               address={address}
               defaultAddress={defaultAddress}
             >
-              {({ stateForMethod }) => (
+              {({stateForMethod}) => (
                 <div className="flex gap-2">
                   <Button
                     disabled={stateForMethod('PUT') !== 'idle'}
@@ -410,7 +410,7 @@ export function AddressForm({
     stateForMethod: (method: 'PUT' | 'POST' | 'DELETE') => Fetcher['state'];
   }) => React.ReactNode;
 }) {
-  const { state, formMethod } = useNavigation();
+  const {state, formMethod} = useNavigation();
   const action = useActionData<ActionResponse>();
   const error = action?.error?.[addressId];
   const isDefaultAddress = defaultAddress?.id === addressId;

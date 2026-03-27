@@ -1,16 +1,16 @@
-import { getPaginationVariables } from '@shopify/hydrogen';
-import { ArrowRight, BookOpen } from 'lucide-react';
-import { Link, useLoaderData } from 'react-router';
-import type { BlogsQuery } from 'storefrontapi.generated';
-import { PaginatedResourceSection } from '~/components/PaginatedResourceSection';
-import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
-import type { Route } from './+types/blogs._index';
+import {getPaginationVariables} from '@shopify/hydrogen';
+import {ArrowRight, BookOpen} from 'lucide-react';
+import {Link, useLoaderData} from 'react-router';
+import type {BlogsQuery} from 'storefrontapi.generated';
+import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
+import {Button} from '~/components/ui/button';
+import {Card, CardContent, CardHeader, CardTitle} from '~/components/ui/card';
+import type {Route} from './+types/blogs._index';
 
 type BlogNode = BlogsQuery['blogs']['nodes'][0];
 
 export const meta: Route.MetaFunction = () => {
-  return [{ title: `Hydrogen | Blogs` }];
+  return [{title: `Hydrogen | Blogs`}];
 };
 
 export async function loader(args: Route.LoaderArgs) {
@@ -20,19 +20,19 @@ export async function loader(args: Route.LoaderArgs) {
   // Await the critical data required to render initial state of the page
   const criticalData = await loadCriticalData(args);
 
-  return { ...deferredData, ...criticalData };
+  return {...deferredData, ...criticalData};
 }
 
 /**
  * Load data necessary for rendering content above the fold. This is the critical data
  * needed to render the page. If it's unavailable, the whole page should 400 or 500 error.
  */
-async function loadCriticalData({ context, request }: Route.LoaderArgs) {
+async function loadCriticalData({context, request}: Route.LoaderArgs) {
   const paginationVariables = getPaginationVariables(request, {
     pageBy: 10,
   });
 
-  const [{ blogs }] = await Promise.all([
+  const [{blogs}] = await Promise.all([
     context.storefront.query(BLOGS_QUERY, {
       variables: {
         ...paginationVariables,
@@ -41,7 +41,7 @@ async function loadCriticalData({ context, request }: Route.LoaderArgs) {
     // Add other queries here, so that they are loaded in parallel
   ]);
 
-  return { blogs };
+  return {blogs};
 }
 
 /**
@@ -49,12 +49,12 @@ async function loadCriticalData({ context, request }: Route.LoaderArgs) {
  * fetched after the initial page load. If it's unavailable, the page should still 200.
  * Make sure to not throw any errors here, as it will cause the page to 500.
  */
-function loadDeferredData({ context }: Route.LoaderArgs) {
+function loadDeferredData({context}: Route.LoaderArgs) {
   return {};
 }
 
 export default function Blogs() {
-  const { blogs } = useLoaderData<typeof loader>();
+  const {blogs} = useLoaderData<typeof loader>();
 
   return (
     <div className="space-y-8">
@@ -66,8 +66,11 @@ export default function Blogs() {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <PaginatedResourceSection<BlogNode> connection={blogs}>
-          {({ node: blog }) => (
-            <Card key={blog.handle} className="group hover:shadow-lg transition-shadow">
+          {({node: blog}) => (
+            <Card
+              key={blog.handle}
+              className="group hover:shadow-lg transition-shadow"
+            >
               <CardHeader>
                 <div className="flex items-center gap-2 mb-2">
                   <BookOpen className="h-5 w-5 text-primary" />

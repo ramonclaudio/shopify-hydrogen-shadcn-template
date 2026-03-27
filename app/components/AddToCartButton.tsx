@@ -1,8 +1,8 @@
-import { CartForm, type OptimisticCartLineInput } from '@shopify/hydrogen';
-import type { VariantProps } from 'class-variance-authority';
-import { useEffect, useRef } from 'react';
-import { type FetcherWithComponents } from 'react-router';
-import { Button, type buttonVariants } from '~/components/ui/button';
+import {CartForm, type OptimisticCartLineInput} from '@shopify/hydrogen';
+import type {VariantProps} from 'class-variance-authority';
+import {useEffect, useRef} from 'react';
+import {type FetcherWithComponents} from 'react-router';
+import {Button, type buttonVariants} from '~/components/ui/button';
 
 function AddToCartButtonInner({
   fetcher,
@@ -36,11 +36,7 @@ function AddToCartButtonInner({
 
   return (
     <>
-      <input
-        name="analytics"
-        type="hidden"
-        value={JSON.stringify(analytics)}
-      />
+      <input name="analytics" type="hidden" value={JSON.stringify(analytics)} />
       <Button
         type="submit"
         disabled={disabled ?? fetcher.state !== 'idle'}
@@ -74,7 +70,7 @@ export function AddToCartButton({
   className?: string;
 }) {
   return (
-    <CartForm route="/cart" inputs={{ lines }} action={CartForm.ACTIONS.LinesAdd}>
+    <CartForm route="/cart" inputs={{lines}} action={CartForm.ACTIONS.LinesAdd}>
       {(fetcher: FetcherWithComponents<any>) => (
         <AddToCartButtonInner
           fetcher={fetcher}
