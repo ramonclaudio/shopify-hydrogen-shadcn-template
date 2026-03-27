@@ -6,21 +6,21 @@ import {
   useOptimisticVariant,
   useSelectedOptionInUrlParam,
 } from '@shopify/hydrogen';
-import { CheckIcon, PackageIcon, RotateCcwIcon, TruckIcon } from 'lucide-react';
-import { Suspense } from 'react';
-import { Await, Link, useLoaderData } from 'react-router';
-import type { ProductRecommendationsQuery } from 'storefrontapi.generated';
-import { ProductForm } from '~/components/ProductForm';
-import { ProductImage } from '~/components/ProductImage';
-import { ProductItem } from '~/components/ProductItem';
-import { ProductPrice } from '~/components/ProductPrice';
-import { Skeleton } from '~/components/ui/skeleton';
-import { redirectIfHandleIsLocalized } from '~/lib/redirect';
-import type { Route } from './+types/products.$handle';
+import {CheckIcon, PackageIcon, RotateCcwIcon, TruckIcon} from 'lucide-react';
+import {Suspense} from 'react';
+import {Await, Link, useLoaderData} from 'react-router';
+import type {ProductRecommendationsQuery} from 'storefrontapi.generated';
+import {ProductForm} from '~/components/ProductForm';
+import {ProductImage} from '~/components/ProductImage';
+import {ProductItem} from '~/components/ProductItem';
+import {ProductPrice} from '~/components/ProductPrice';
+import {Skeleton} from '~/components/ui/skeleton';
+import {redirectIfHandleIsLocalized} from '~/lib/redirect';
+import type {Route} from './+types/products.$handle';
 
-export const meta: Route.MetaFunction = ({ data }: { data: any }) => {
+export const meta: Route.MetaFunction = ({data}: {data: any}) => {
   return [
-    { title: `Hydrogen | ${data?.product.title ?? ''}` },
+    {title: `Hydrogen | ${data?.product.title ?? ''}`},
     {
       rel: 'canonical',
       href: `/products/${data?.product.handle}`,
@@ -35,34 +35,34 @@ export async function loader(args: Route.LoaderArgs) {
   // Start fetching non-critical data without blocking time to first byte
   const deferredData = loadDeferredData(args, criticalData.product.id);
 
-  return { ...deferredData, ...criticalData };
+  return {...deferredData, ...criticalData};
 }
 
 /**
  * Load data necessary for rendering content above the fold. This is the critical data
  * needed to render the page. If it's unavailable, the whole page should 400 or 500 error.
  */
-async function loadCriticalData({ context, params, request }: Route.LoaderArgs) {
-  const { handle } = params;
-  const { storefront } = context;
+async function loadCriticalData({context, params, request}: Route.LoaderArgs) {
+  const {handle} = params;
+  const {storefront} = context;
 
   if (!handle) {
     throw new Error('Expected product handle to be defined');
   }
 
-  const [{ product }] = await Promise.all([
+  const [{product}] = await Promise.all([
     storefront.query(PRODUCT_QUERY, {
-      variables: { handle, selectedOptions: getSelectedProductOptions(request) },
+      variables: {handle, selectedOptions: getSelectedProductOptions(request)},
     }),
     // Add other queries here, so that they are loaded in parallel
   ]);
 
   if (!product?.id) {
-    throw new Response(null, { status: 404 });
+    throw new Response(null, {status: 404});
   }
 
   // The API handle might be localized, so redirect to the localized handle
-  redirectIfHandleIsLocalized(request, { handle, data: product });
+  redirectIfHandleIsLocalized(request, {handle, data: product});
 
   return {
     product,
@@ -74,27 +74,25 @@ async function loadCriticalData({ context, params, request }: Route.LoaderArgs) 
  * fetched after the initial page load. If it's unavailable, the page should still 200.
  * Make sure to not throw any errors here, as it will cause the page to 500.
  */
-function loadDeferredData({ context }: Route.LoaderArgs, productId: string) {
+function loadDeferredData({context}: Route.LoaderArgs, productId: string) {
   // Put any API calls that is not critical to be available on first page render
   // For example: product reviews, product recommendations, social feeds.
 
-  const { storefront } = context;
+  const {storefront} = context;
 
   const relatedProducts = Promise.all([
     storefront
       .query(RECOMMENDED_PRODUCTS_QUERY, {
-        variables: { productId },
+        variables: {productId},
       })
       .catch((error: unknown) => {
         console.error(error);
         return null;
       }),
-    storefront
-      .query(FALLBACK_PRODUCTS_QUERY)
-      .catch((error: unknown) => {
-        console.error(error);
-        return null;
-      }),
+    storefront.query(FALLBACK_PRODUCTS_QUERY).catch((error: unknown) => {
+      console.error(error);
+      return null;
+    }),
   ]);
 
   return {
@@ -103,7 +101,7 @@ function loadDeferredData({ context }: Route.LoaderArgs, productId: string) {
 }
 
 export default function Product() {
-  const { product, relatedProducts } = useLoaderData<typeof loader>();
+  const {product, relatedProducts} = useLoaderData<typeof loader>();
 
   // Optimistically selects a variant with given available variant information
   const selectedVariant = useOptimisticVariant(
@@ -121,7 +119,7 @@ export default function Product() {
     selectedOrFirstAvailableVariant: selectedVariant,
   });
 
-  const { title, descriptionHtml, description, vendor } = product;
+  const {title, descriptionHtml, description, vendor} = product;
 
   return (
     <div className="space-y-16">
@@ -141,9 +139,7 @@ export default function Product() {
                   {vendor}
                 </p>
               )}
-              <h1 className="text-3xl font-bold tracking-tight">
-                {title}
-              </h1>
+              <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
             </div>
 
             <ProductPrice
@@ -152,7 +148,9 @@ export default function Product() {
             />
 
             {description && (
-              <p className="text-muted-foreground leading-relaxed">{description}</p>
+              <p className="text-muted-foreground leading-relaxed">
+                {description}
+              </p>
             )}
 
             {/* Stock Status */}
@@ -185,15 +183,21 @@ export default function Product() {
           <div className="grid grid-cols-3 gap-4 border-t border-b border-border py-6">
             <div className="flex flex-col items-center text-center gap-2">
               <TruckIcon className="h-6 w-6 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Free Shipping</span>
+              <span className="text-sm text-muted-foreground">
+                Free Shipping
+              </span>
             </div>
             <div className="flex flex-col items-center text-center gap-2">
               <PackageIcon className="h-6 w-6 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">2 Year Warranty</span>
+              <span className="text-sm text-muted-foreground">
+                2 Year Warranty
+              </span>
             </div>
             <div className="flex flex-col items-center text-center gap-2">
               <RotateCcwIcon className="h-6 w-6 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Easy Returns</span>
+              <span className="text-sm text-muted-foreground">
+                Easy Returns
+              </span>
             </div>
           </div>
 
@@ -244,7 +248,8 @@ export default function Product() {
       <Suspense fallback={<RelatedProductsSkeleton />}>
         <Await resolve={relatedProducts}>
           {([recommendationsData, fallbackData]) => {
-            const recommendations = recommendationsData?.productRecommendations || [];
+            const recommendations =
+              recommendationsData?.productRecommendations || [];
             const fallbackProducts = fallbackData?.products?.nodes || [];
 
             // Combine recommendations with fallback products, filtering out the current product
@@ -257,7 +262,7 @@ export default function Product() {
               // Don't add the current product or duplicates
               if (
                 fallbackProduct.id !== currentProductId &&
-                !allProducts.find(p => p.id === fallbackProduct.id)
+                !allProducts.find((p) => p.id === fallbackProduct.id)
               ) {
                 allProducts.push(fallbackProduct);
               }
@@ -274,11 +279,7 @@ export default function Product() {
   );
 }
 
-function RelatedProducts({
-  products,
-}: {
-  products: any[];
-}) {
+function RelatedProducts({products}: {products: any[]}) {
   if (!products || products.length === 0) return null;
 
   return (
@@ -290,11 +291,7 @@ function RelatedProducts({
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
         {products.map((product) => (
-          <ProductItem
-            key={product.id}
-            product={product}
-            loading="lazy"
-          />
+          <ProductItem key={product.id} product={product} loading="lazy" />
         ))}
       </div>
     </section>
@@ -308,7 +305,7 @@ function RelatedProductsSkeleton() {
         <Skeleton className="h-6 w-48" />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-        {Array.from({ length: 4 }, (_, i) => `skeleton-${i}`).map((key) => (
+        {Array.from({length: 4}, (_, i) => `skeleton-${i}`).map((key) => (
           <div key={key} className="space-y-4">
             <Skeleton className="aspect-[3/4] w-full" />
             <Skeleton className="h-4 w-3/4" />

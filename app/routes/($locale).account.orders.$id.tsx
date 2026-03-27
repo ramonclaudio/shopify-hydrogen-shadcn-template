@@ -1,14 +1,14 @@
-import { Image, Money } from '@shopify/hydrogen';
+import {Image, Money} from '@shopify/hydrogen';
 import type {
   OrderLineItemFullFragment,
   OrderQuery,
 } from 'customer-accountapi.generated';
-import { ExternalLink, MapPin, Package } from 'lucide-react';
-import { redirect, useLoaderData } from 'react-router';
-import { AspectRatio } from '~/components/ui/aspect-ratio';
-import { Badge } from '~/components/ui/badge';
-import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import {ExternalLink, MapPin, Package} from 'lucide-react';
+import {redirect, useLoaderData} from 'react-router';
+import {AspectRatio} from '~/components/ui/aspect-ratio';
+import {Badge} from '~/components/ui/badge';
+import {Button} from '~/components/ui/button';
+import {Card, CardContent, CardHeader, CardTitle} from '~/components/ui/card';
 import {
   Table,
   TableBody,
@@ -18,21 +18,21 @@ import {
   TableHeader,
   TableRow,
 } from '~/components/ui/table';
-import { CUSTOMER_ORDER_QUERY } from '~/graphql/customer-account/CustomerOrderQuery';
-import type { Route } from './+types/account.orders.$id';
+import {CUSTOMER_ORDER_QUERY} from '~/graphql/customer-account/CustomerOrderQuery';
+import type {Route} from './+types/account.orders.$id';
 
-export const meta: Route.MetaFunction = ({ data }: { data: any }) => {
-  return [{ title: `Order ${data?.order?.name}` }];
+export const meta: Route.MetaFunction = ({data}: {data: any}) => {
+  return [{title: `Order ${data?.order?.name}`}];
 };
 
-export async function loader({ params, context }: Route.LoaderArgs) {
-  const { customerAccount } = context;
+export async function loader({params, context}: Route.LoaderArgs) {
+  const {customerAccount} = context;
   if (!params.id) {
     return redirect('/account/orders');
   }
 
   const orderId = atob(params.id);
-  const { data, errors }: { data: OrderQuery; errors?: Array<{ message: string }> } =
+  const {data, errors}: {data: OrderQuery; errors?: Array<{message: string}>} =
     await customerAccount.query(CUSTOMER_ORDER_QUERY, {
       variables: {
         orderId,
@@ -44,7 +44,7 @@ export async function loader({ params, context }: Route.LoaderArgs) {
     throw new Error('Order not found');
   }
 
-  const { order } = data;
+  const {order} = data;
 
   // Extract line items directly from nodes array
   const lineItems = order.lineItems.nodes;
@@ -62,20 +62,20 @@ export async function loader({ params, context }: Route.LoaderArgs) {
   const discountValue =
     firstDiscount?.__typename === 'MoneyV2'
       ? (firstDiscount as Extract<
-        typeof firstDiscount,
-        { __typename: 'MoneyV2' }
-      >)
+          typeof firstDiscount,
+          {__typename: 'MoneyV2'}
+        >)
       : null;
 
   // Type guard for percentage discount
   const discountPercentage =
     firstDiscount?.__typename === 'PricingPercentageValue'
       ? (
-        firstDiscount as Extract<
-          typeof firstDiscount,
-          { __typename: 'PricingPercentageValue' }
-        >
-      ).percentage
+          firstDiscount as Extract<
+            typeof firstDiscount,
+            {__typename: 'PricingPercentageValue'}
+          >
+        ).percentage
       : null;
 
   return {
@@ -135,19 +135,19 @@ export default function OrderRoute() {
             <TableFooter>
               {((discountValue && discountValue.amount) ||
                 discountPercentage) && (
-                  <TableRow>
-                    <TableCell colSpan={3}>Discounts</TableCell>
-                    <TableCell className="text-right">
-                      {discountPercentage ? (
-                        <span className="text-green-600 font-medium">
-                          -{discountPercentage}% OFF
-                        </span>
-                      ) : (
-                        discountValue && <Money data={discountValue!} />
-                      )}
-                    </TableCell>
-                  </TableRow>
-                )}
+                <TableRow>
+                  <TableCell colSpan={3}>Discounts</TableCell>
+                  <TableCell className="text-right">
+                    {discountPercentage ? (
+                      <span className="text-green-600 font-medium">
+                        -{discountPercentage}% OFF
+                      </span>
+                    ) : (
+                      discountValue && <Money data={discountValue!} />
+                    )}
+                  </TableCell>
+                </TableRow>
+              )}
               <TableRow>
                 <TableCell colSpan={3}>Subtotal</TableCell>
                 <TableCell className="text-right">
@@ -218,11 +218,7 @@ export default function OrderRoute() {
               </Badge>
             </div>
             <Button asChild className="w-full" variant="outline">
-              <a
-                target="_blank"
-                href={order.statusPageUrl}
-                rel="noreferrer"
-              >
+              <a target="_blank" href={order.statusPageUrl} rel="noreferrer">
                 View Order Status
                 <ExternalLink className="ml-2 h-4 w-4" />
               </a>
@@ -234,7 +230,7 @@ export default function OrderRoute() {
   );
 }
 
-function OrderLineRow({ lineItem }: { lineItem: OrderLineItemFullFragment }) {
+function OrderLineRow({lineItem}: {lineItem: OrderLineItemFullFragment}) {
   return (
     <TableRow key={lineItem.id}>
       <TableCell>

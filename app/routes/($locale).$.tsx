@@ -1,10 +1,10 @@
-import { AlertCircle, Home, Search } from 'lucide-react';
-import { Link } from 'react-router';
-import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
-import type { Route } from './+types/$';
+import {AlertCircle, Home, Search} from 'lucide-react';
+import {Link} from 'react-router';
+import {Button} from '~/components/ui/button';
+import {Card, CardContent, CardHeader, CardTitle} from '~/components/ui/card';
+import type {Route} from './+types/$';
 
-export async function loader({ request }: Route.LoaderArgs) {
+export async function loader({request}: Route.LoaderArgs) {
   throw new Response(`${new URL(request.url).pathname} not found`, {
     status: 404,
   });
@@ -25,7 +25,8 @@ export default function CatchAllPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           <p className="text-muted-foreground">
-            Sorry, we couldn&apos;t find the page you&apos;re looking for. The page may have been moved or deleted.
+            Sorry, we couldn&apos;t find the page you&apos;re looking for. The
+            page may have been moved or deleted.
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
             <Button asChild className="flex-1" size="lg">

@@ -1,4 +1,4 @@
-import { LogOut, MapPin, Package, User } from 'lucide-react';
+import {LogOut, MapPin, Package, User} from 'lucide-react';
 import {
   Form,
   NavLink,
@@ -6,20 +6,20 @@ import {
   data as remixData,
   useLoaderData,
 } from 'react-router';
-import { Button } from '~/components/ui/button';
-import { Card, CardContent } from '~/components/ui/card';
-import { Separator } from '~/components/ui/separator';
-import { CUSTOMER_DETAILS_QUERY } from '~/graphql/customer-account/CustomerDetailsQuery';
-import { cn } from '~/lib/utils';
-import type { Route } from './+types/account';
+import {Button} from '~/components/ui/button';
+import {Card, CardContent} from '~/components/ui/card';
+import {Separator} from '~/components/ui/separator';
+import {CUSTOMER_DETAILS_QUERY} from '~/graphql/customer-account/CustomerDetailsQuery';
+import {cn} from '~/lib/utils';
+import type {Route} from './+types/account';
 
 export function shouldRevalidate() {
   return true;
 }
 
-export async function loader({ context }: Route.LoaderArgs) {
-  const { customerAccount } = context;
-  const { data, errors } = await customerAccount.query(CUSTOMER_DETAILS_QUERY, {
+export async function loader({context}: Route.LoaderArgs) {
+  const {customerAccount} = context;
+  const {data, errors} = await customerAccount.query(CUSTOMER_DETAILS_QUERY, {
     variables: {
       language: customerAccount.i18n.language,
     },
@@ -30,7 +30,7 @@ export async function loader({ context }: Route.LoaderArgs) {
   }
 
   return remixData(
-    { customer: data.customer },
+    {customer: data.customer},
     {
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -40,7 +40,7 @@ export async function loader({ context }: Route.LoaderArgs) {
 }
 
 export default function AccountLayout() {
-  const { customer } = useLoaderData<typeof loader>();
+  const {customer} = useLoaderData<typeof loader>();
 
   const heading = customer
     ? customer.firstName
@@ -61,24 +61,27 @@ export default function AccountLayout() {
           <AccountMenu />
         </CardContent>
       </Card>
-      <Outlet context={{ customer }} />
+      <Outlet context={{customer}} />
     </div>
   );
 }
 
 function AccountMenu() {
   const menuItems = [
-    { to: '/account/orders', label: 'Orders', icon: Package },
-    { to: '/account/profile', label: 'Profile', icon: User },
-    { to: '/account/addresses', label: 'Addresses', icon: MapPin },
+    {to: '/account/orders', label: 'Orders', icon: Package},
+    {to: '/account/profile', label: 'Profile', icon: User},
+    {to: '/account/addresses', label: 'Addresses', icon: MapPin},
   ];
 
   return (
-    <nav role="navigation" className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+    <nav
+      role="navigation"
+      className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
+    >
       {menuItems.map((item, index) => (
         <div key={item.to} className="flex items-center">
           <NavLink to={item.to} className="flex-1 sm:flex-initial">
-            {({ isActive, isPending }) => (
+            {({isActive, isPending}) => (
               <Button
                 variant={isActive ? 'default' : 'ghost'}
                 className={cn(
@@ -107,8 +110,16 @@ function AccountMenu() {
 
 function Logout() {
   return (
-    <Form method="POST" action="/account/logout" className="flex-1 sm:flex-initial">
-      <Button type="submit" variant="ghost" className="w-full sm:w-auto justify-start text-destructive hover:text-destructive hover:bg-destructive/10">
+    <Form
+      method="POST"
+      action="/account/logout"
+      className="flex-1 sm:flex-initial"
+    >
+      <Button
+        type="submit"
+        variant="ghost"
+        className="w-full sm:w-auto justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
+      >
         <LogOut className="h-4 w-4 mr-2" />
         Sign out
       </Button>

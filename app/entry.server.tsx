@@ -2,10 +2,10 @@ import {
   createContentSecurityPolicy,
   type HydrogenRouterContextProvider,
 } from '@shopify/hydrogen';
-import { isbot } from 'isbot';
-import { renderToReadableStream } from 'react-dom/server';
-import type { EntryContext } from 'react-router';
-import { ServerRouter } from 'react-router';
+import {isbot} from 'isbot';
+import {renderToReadableStream} from 'react-dom/server';
+import type {EntryContext} from 'react-router';
+import {ServerRouter} from 'react-router';
 
 export default async function handleRequest(
   request: Request,
@@ -14,12 +14,17 @@ export default async function handleRequest(
   reactRouterContext: EntryContext,
   context: HydrogenRouterContextProvider,
 ) {
-  const { nonce, header, NonceProvider } = createContentSecurityPolicy({
+  const {nonce, header, NonceProvider} = createContentSecurityPolicy({
     shop: {
       checkoutDomain: context.env.PUBLIC_CHECKOUT_DOMAIN,
       storeDomain: context.env.PUBLIC_STORE_DOMAIN,
     },
-    defaultSrc: ['self', 'http://localhost:*', 'ws://localhost:*', 'wss://localhost:*'],
+    defaultSrc: [
+      'self',
+      'http://localhost:*',
+      'ws://localhost:*',
+      'wss://localhost:*',
+    ],
     scriptSrc: [
       'self',
       'unsafe-inline',

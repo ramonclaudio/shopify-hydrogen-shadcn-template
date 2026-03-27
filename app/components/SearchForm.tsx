@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { Form, type FormProps } from 'react-router';
+import {useEffect, useRef} from 'react';
+import {Form, type FormProps} from 'react-router';
 
 type SearchFormProps = Omit<FormProps, 'children'> & {
   children: (args: {
@@ -26,7 +26,7 @@ type SearchFormProps = Omit<FormProps, 'children'> & {
  *  )}
  *  </SearchForm>
  */
-export function SearchForm({ children, ...props }: SearchFormProps) {
+export function SearchForm({children, ...props}: SearchFormProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useFocusOnCmdK(inputRef);
@@ -37,7 +37,7 @@ export function SearchForm({ children, ...props }: SearchFormProps) {
 
   return (
     <Form method="get" {...props}>
-      {children({ inputRef })}
+      {children({inputRef})}
     </Form>
   );
 }

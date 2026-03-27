@@ -1,6 +1,6 @@
-import { Suspense } from 'react';
-import { Await } from 'react-router';
-import type { FooterQuery, HeaderQuery } from 'storefrontapi.generated';
+import {Suspense} from 'react';
+import {Await} from 'react-router';
+import type {FooterQuery, HeaderQuery} from 'storefrontapi.generated';
 
 interface FooterProps {
   footer: Promise<FooterQuery | null>;
@@ -20,7 +20,10 @@ export function Footer({
     <Suspense>
       <Await resolve={footerPromise}>
         {(footer) => (
-          <footer className="border-t border-border bg-muted/30 px-8 py-16 animate-slide-up" style={{ animationDelay: '1100ms' }}>
+          <footer
+            className="border-t border-border bg-muted/30 px-8 py-16 animate-slide-up"
+            style={{animationDelay: '1100ms'}}
+          >
             <div className="mx-auto max-w-4xl text-center">
               <div className="mb-6 flex justify-center">
                 {logoUrl ? (
@@ -36,7 +39,8 @@ export function Footer({
                 )}
               </div>
               <p className="text-xs font-mono tracking-widest uppercase text-muted-foreground">
-                © {new Date().getFullYear()} {header.shop.name.toUpperCase()}, INC. ALL RIGHTS RESERVED.
+                © {new Date().getFullYear()} {header.shop.name.toUpperCase()},
+                INC. ALL RIGHTS RESERVED.
               </p>
             </div>
           </footer>

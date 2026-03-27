@@ -1,6 +1,6 @@
-import { getSchema } from '@shopify/hydrogen-codegen';
+import {getSchema} from '@shopify/hydrogen-codegen';
 // @ts-expect-error graphql-config types
-import type { IGraphQLConfig } from 'graphql-config';
+import type {IGraphQLConfig} from 'graphql-config';
 
 /**
  * GraphQL Config

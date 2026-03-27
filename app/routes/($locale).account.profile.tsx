@@ -1,6 +1,6 @@
-import type { CustomerUpdateInput } from '@shopify/hydrogen/customer-account-api-types';
-import type { CustomerFragment } from 'customer-accountapi.generated';
-import { AlertCircle, Save, User } from 'lucide-react';
+import type {CustomerUpdateInput} from '@shopify/hydrogen/customer-account-api-types';
+import type {CustomerFragment} from 'customer-accountapi.generated';
+import {AlertCircle, Save, User} from 'lucide-react';
 import {
   data,
   Form,
@@ -8,12 +8,12 @@ import {
   useNavigation,
   useOutletContext,
 } from 'react-router';
-import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
-import { Input } from '~/components/ui/input';
-import { Label } from '~/components/ui/label';
-import { CUSTOMER_UPDATE_MUTATION } from '~/graphql/customer-account/CustomerUpdateMutation';
-import type { Route } from './+types/account.profile';
+import {Button} from '~/components/ui/button';
+import {Card, CardContent, CardHeader, CardTitle} from '~/components/ui/card';
+import {Input} from '~/components/ui/input';
+import {Label} from '~/components/ui/label';
+import {CUSTOMER_UPDATE_MUTATION} from '~/graphql/customer-account/CustomerUpdateMutation';
+import type {Route} from './+types/account.profile';
 
 export type ActionResponse = {
   error: string | null;
@@ -21,20 +21,20 @@ export type ActionResponse = {
 };
 
 export const meta: Route.MetaFunction = () => {
-  return [{ title: 'Profile' }];
+  return [{title: 'Profile'}];
 };
 
-export async function loader({ context }: Route.LoaderArgs) {
+export async function loader({context}: Route.LoaderArgs) {
   context.customerAccount.handleAuthStatus();
 
   return {};
 }
 
-export async function action({ request, context }: Route.ActionArgs) {
-  const { customerAccount } = context;
+export async function action({request, context}: Route.ActionArgs) {
+  const {customerAccount} = context;
 
   if (request.method !== 'PUT') {
-    return data({ error: 'Method not allowed' }, { status: 405 });
+    return data({error: 'Method not allowed'}, {status: 405});
   }
 
   const form = await request.formData();
@@ -52,7 +52,7 @@ export async function action({ request, context }: Route.ActionArgs) {
     }
 
     // update customer and possibly password
-    const { data, errors } = await customerAccount.mutate(
+    const {data, errors} = await customerAccount.mutate(
       CUSTOMER_UPDATE_MUTATION,
       {
         variables: {
@@ -76,7 +76,7 @@ export async function action({ request, context }: Route.ActionArgs) {
     };
   } catch (error: any) {
     return data(
-      { error: error.message, customer: null },
+      {error: error.message, customer: null},
       {
         status: 400,
       },
@@ -85,8 +85,8 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function AccountProfile() {
-  const account = useOutletContext<{ customer: CustomerFragment }>();
-  const { state } = useNavigation();
+  const account = useOutletContext<{customer: CustomerFragment}>();
+  const {state} = useNavigation();
   const action = useActionData<ActionResponse>();
   const customer = action?.customer ?? account?.customer;
 
@@ -155,7 +155,12 @@ export default function AccountProfile() {
             </div>
           )}
 
-          <Button type="submit" disabled={state !== 'idle'} size="lg" className="w-full sm:w-auto">
+          <Button
+            type="submit"
+            disabled={state !== 'idle'}
+            size="lg"
+            className="w-full sm:w-auto"
+          >
             <Save className="h-4 w-4 mr-2" />
             {state !== 'idle' ? 'Updating...' : 'Save Changes'}
           </Button>

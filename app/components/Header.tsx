@@ -3,17 +3,23 @@ import {
   useAnalytics,
   useOptimisticCart,
 } from '@shopify/hydrogen';
-import { HeartIcon, MenuIcon, SearchIcon, ShoppingBag, UserIcon } from 'lucide-react';
-import { Suspense, useEffect, useId, useRef, useState } from 'react';
-import { Await, NavLink, useAsyncValue } from 'react-router';
-import type { CartApiQueryFragment, HeaderQuery } from 'storefrontapi.generated';
-import { useAside } from '~/components/Aside';
-import { ModeToggle } from '~/components/mode-toggle';
-import { SearchFormPredictive } from '~/components/SearchFormPredictive';
-import { SearchResultsPredictive } from '~/components/SearchResultsPredictive';
-import { Badge } from '~/components/ui/badge';
-import { Button } from '~/components/ui/button';
-import { Input } from '~/components/ui/input';
+import {
+  HeartIcon,
+  MenuIcon,
+  SearchIcon,
+  ShoppingBag,
+  UserIcon,
+} from 'lucide-react';
+import {Suspense, useEffect, useId, useRef, useState} from 'react';
+import {Await, NavLink, useAsyncValue} from 'react-router';
+import type {CartApiQueryFragment, HeaderQuery} from 'storefrontapi.generated';
+import {useAside} from '~/components/Aside';
+import {ModeToggle} from '~/components/mode-toggle';
+import {SearchFormPredictive} from '~/components/SearchFormPredictive';
+import {SearchResultsPredictive} from '~/components/SearchResultsPredictive';
+import {Badge} from '~/components/ui/badge';
+import {Button} from '~/components/ui/button';
+import {Input} from '~/components/ui/input';
 
 interface HeaderProps {
   header: HeaderQuery;
@@ -30,7 +36,7 @@ export function Header({
   cart,
   publicStoreDomain,
 }: HeaderProps) {
-  const { shop, menu } = header;
+  const {shop, menu} = header;
 
   // Use Shopify brand logo if it exists, otherwise fallback to shop name
   const logoUrl = shop.brand?.logo?.image?.url;
@@ -45,11 +51,7 @@ export function Header({
           className="flex items-center hover:opacity-80 transition-opacity flex-shrink-0"
         >
           {logoUrl ? (
-            <img
-              src={logoUrl}
-              alt={shop.name}
-              className="h-8 md:h-10 w-auto"
-            />
+            <img src={logoUrl} alt={shop.name} className="h-8 md:h-10 w-auto" />
           ) : (
             <strong className="text-xl md:text-2xl font-bold tracking-tight">
               {shop.name}
@@ -79,7 +81,7 @@ export function HeaderMenu({
   viewport: Viewport;
   publicStoreDomain: HeaderProps['publicStoreDomain'];
 }) {
-  const { close } = useAside();
+  const {close} = useAside();
 
   const navClassName =
     viewport === 'desktop'
@@ -111,36 +113,41 @@ export function HeaderMenu({
 
   return (
     <nav className={navClassName} role="navigation">
-      {menuItems.map((item: {id: string; url?: string | null; title: string}, index: number) => {
-        if (!item.url) return null;
+      {menuItems.map(
+        (
+          item: {id: string; url?: string | null; title: string},
+          index: number,
+        ) => {
+          if (!item.url) return null;
 
-        // if the url is internal, we strip the domain
-        const url =
-          item.url.includes('myshopify.com') ||
+          // if the url is internal, we strip the domain
+          const url =
+            item.url.includes('myshopify.com') ||
             item.url.includes(publicStoreDomain) ||
             item.url.includes(primaryDomainUrl)
-            ? new URL(item.url).pathname
-            : item.url;
+              ? new URL(item.url).pathname
+              : item.url;
 
-        const breakpointClass = getItemBreakpoint(index, menuItems.length);
+          const breakpointClass = getItemBreakpoint(index, menuItems.length);
 
-        return (
-          <NavLink
-            end
-            key={item.id}
-            onClick={close}
-            prefetch="intent"
-            to={url}
-            className={
-              viewport === 'desktop'
-                ? `text-xs font-semibold tracking-widest uppercase hover:text-muted-foreground transition-colors whitespace-nowrap ${breakpointClass}`
-                : 'text-sm font-semibold tracking-widest uppercase py-3 hover:text-muted-foreground transition-colors'
-            }
-          >
-            {item.title}
-          </NavLink>
-        );
-      })}
+          return (
+            <NavLink
+              end
+              key={item.id}
+              onClick={close}
+              prefetch="intent"
+              to={url}
+              className={
+                viewport === 'desktop'
+                  ? `text-xs font-semibold tracking-widest uppercase hover:text-muted-foreground transition-colors whitespace-nowrap ${breakpointClass}`
+                  : 'text-sm font-semibold tracking-widest uppercase py-3 hover:text-muted-foreground transition-colors'
+              }
+            >
+              {item.title}
+            </NavLink>
+          );
+        },
+      )}
     </nav>
   );
 }
@@ -150,10 +157,18 @@ function HeaderCtas({
   cart,
 }: Pick<HeaderProps, 'isLoggedIn' | 'cart'>) {
   return (
-    <div className="flex items-center gap-x-2 sm:gap-x-3 lg:gap-x-6 flex-shrink-0" role="navigation">
+    <div
+      className="flex items-center gap-x-2 sm:gap-x-3 lg:gap-x-6 flex-shrink-0"
+      role="navigation"
+    >
       <SearchBar />
       <MobileSearchToggle />
-      <Button variant="ghost" size="icon" className="h-8 w-8 hidden md:flex" asChild>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 hidden md:flex"
+        asChild
+      >
         <NavLink prefetch="intent" to="/account/wishlist">
           <HeartIcon className="h-5 w-5" />
           <span className="sr-only">Wishlist</span>
@@ -161,7 +176,12 @@ function HeaderCtas({
       </Button>
       <CartToggle cart={cart} />
       <ModeToggle />
-      <Button variant="ghost" size="icon" className="h-8 w-8 hidden md:flex" asChild>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 hidden md:flex"
+        asChild
+      >
         <NavLink prefetch="intent" to="/account">
           <UserIcon className="h-5 w-5" />
           <span className="sr-only">
@@ -179,7 +199,7 @@ function HeaderCtas({
 }
 
 function HeaderMenuMobileToggle() {
-  const { open } = useAside();
+  const {open} = useAside();
   return (
     <Button
       variant="ghost"
@@ -194,7 +214,7 @@ function HeaderMenuMobileToggle() {
 }
 
 function MobileSearchToggle() {
-  const { open } = useAside();
+  const {open} = useAside();
   return (
     <Button
       variant="ghost"
@@ -216,7 +236,7 @@ function SearchBar() {
   return (
     <div className="hidden sm:block relative group" ref={searchContainerRef}>
       <SearchFormPredictive>
-        {({ fetchResults, goToSearch, inputRef }) => {
+        {({fetchResults, goToSearch, inputRef}) => {
           const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
             fetchResults(e);
             setIsSearchOpen(!!e.target.value);
@@ -248,7 +268,7 @@ function SearchBar() {
       {isSearchOpen && (
         <div className="absolute top-full right-0 mt-2 z-50 w-[400px]">
           <SearchResultsPredictive>
-            {({ items, total, term, state, closeSearch }) => {
+            {({items, total, term, state, closeSearch}) => {
               const handleClose = () => {
                 closeSearch();
                 setIsSearchOpen(false);
@@ -361,9 +381,9 @@ function SearchResults({
   );
 }
 
-function CartBadge({ count }: { count: number | null }) {
-  const { open } = useAside();
-  const { publish, shop, cart, prevCart } = useAnalytics();
+function CartBadge({count}: {count: number | null}) {
+  const {open} = useAside();
+  const {publish, shop, cart, prevCart} = useAnalytics();
 
   return (
     <Button
@@ -397,7 +417,7 @@ function CartBadge({ count }: { count: number | null }) {
   );
 }
 
-function CartToggle({ cart }: Pick<HeaderProps, 'cart'>) {
+function CartToggle({cart}: Pick<HeaderProps, 'cart'>) {
   return (
     <Suspense fallback={<CartBadge count={null} />}>
       <Await resolve={cart}>

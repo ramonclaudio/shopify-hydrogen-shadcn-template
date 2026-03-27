@@ -1,7 +1,7 @@
 // Virtual entry point for the app
-import { storefrontRedirect } from '@shopify/hydrogen';
-import { createRequestHandler } from '@shopify/hydrogen/oxygen';
-import { createHydrogenRouterContext } from '~/lib/context';
+import {storefrontRedirect} from '@shopify/hydrogen';
+import {createRequestHandler} from '@shopify/hydrogen/oxygen';
+import {createHydrogenRouterContext} from '~/lib/context';
 
 /**
  * Export a fetch handler in module format.
@@ -55,7 +55,7 @@ export default {
       return response;
     } catch (error) {
       console.error(error);
-      return new Response('An unexpected error occurred', { status: 500 });
+      return new Response('An unexpected error occurred', {status: 500});
     }
   },
 };

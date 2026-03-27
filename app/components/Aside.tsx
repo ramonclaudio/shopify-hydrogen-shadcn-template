@@ -48,7 +48,7 @@ export function Aside({
   heading: React.ReactNode;
   description?: React.ReactNode;
 }) {
-  const { type: activeType, close } = useAside();
+  const {type: activeType, close} = useAside();
   const isOpen = type === activeType;
 
   const [isMobile, setIsMobile] = useState(false);
@@ -75,13 +75,21 @@ export function Aside({
   // Use Drawer for cart on mobile, Sheet otherwise
   if (type === 'cart' && isMobile) {
     return (
-      <Drawer open={isOpen} onOpenChange={(open) => !open && close()} direction="bottom">
+      <Drawer
+        open={isOpen}
+        onOpenChange={(open) => !open && close()}
+        direction="bottom"
+      >
         <DrawerContent className="gap-0 p-0 flex flex-col max-h-[95vh]">
           <DrawerHeader className="border-b flex-shrink-0 text-center">
             <DrawerTitle>{heading}</DrawerTitle>
-            {description && <DrawerDescription>{description}</DrawerDescription>}
+            {description && (
+              <DrawerDescription>{description}</DrawerDescription>
+            )}
           </DrawerHeader>
-          <div className="flex-1 overflow-hidden flex flex-col min-h-0">{children}</div>
+          <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+            {children}
+          </div>
         </DrawerContent>
       </Drawer>
     );
@@ -91,14 +99,19 @@ export function Aside({
     <Sheet open={isOpen} onOpenChange={(open) => !open && close()}>
       <SheetContent
         side={getSide()}
-        className={`gap-0 p-0 flex flex-col ${type === 'cart' && !isMobile ? 'md:max-w-md' : ''
-          }`}
+        className={`gap-0 p-0 flex flex-col ${
+          type === 'cart' && !isMobile ? 'md:max-w-md' : ''
+        }`}
       >
-        <SheetHeader className={`border-b flex-shrink-0 ${type === 'cart' ? 'text-left space-y-2 py-6' : 'text-left py-6'}`}>
+        <SheetHeader
+          className={`border-b flex-shrink-0 ${type === 'cart' ? 'text-left space-y-2 py-6' : 'text-left py-6'}`}
+        >
           <SheetTitle>{heading}</SheetTitle>
           {description && <SheetDescription>{description}</SheetDescription>}
         </SheetHeader>
-        <div className="flex-1 overflow-hidden flex flex-col min-h-0">{children}</div>
+        <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+          {children}
+        </div>
       </SheetContent>
     </Sheet>
   );
@@ -106,7 +119,7 @@ export function Aside({
 
 const AsideContext = createContext<AsideContextValue | null>(null);
 
-Aside.Provider = function AsideProvider({ children }: { children: ReactNode }) {
+Aside.Provider = function AsideProvider({children}: {children: ReactNode}) {
   const [type, setType] = useState<AsideType>('closed');
 
   return (

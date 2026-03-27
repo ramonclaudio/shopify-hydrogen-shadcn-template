@@ -1,19 +1,19 @@
-import { SearchIcon } from 'lucide-react';
-import { Suspense } from 'react';
-import { Await, Link } from 'react-router';
+import {SearchIcon} from 'lucide-react';
+import {Suspense} from 'react';
+import {Await, Link} from 'react-router';
 import type {
   CartApiQueryFragment,
   FooterQuery,
   HeaderQuery,
 } from 'storefrontapi.generated';
-import { Aside, useAside } from '~/components/Aside';
-import { CartMain } from '~/components/CartMain';
-import { Footer } from '~/components/Footer';
-import { Header, HeaderMenu } from '~/components/Header';
-import { SearchFormPredictive } from '~/components/SearchFormPredictive';
-import { SearchResultsPredictive } from '~/components/SearchResultsPredictive';
-import { Input } from '~/components/ui/input';
-import { Separator } from '~/components/ui/separator';
+import {Aside, useAside} from '~/components/Aside';
+import {CartMain} from '~/components/CartMain';
+import {Footer} from '~/components/Footer';
+import {Header, HeaderMenu} from '~/components/Header';
+import {SearchFormPredictive} from '~/components/SearchFormPredictive';
+import {SearchResultsPredictive} from '~/components/SearchResultsPredictive';
+import {Input} from '~/components/ui/input';
+import {Separator} from '~/components/ui/separator';
 
 interface PageLayoutProps {
   cart: Promise<CartApiQueryFragment | null>;
@@ -35,7 +35,11 @@ export function PageLayout({
   return (
     <Aside.Provider>
       <CartAside cart={cart} />
-      <MobileMenuAside header={header} publicStoreDomain={publicStoreDomain} isLoggedIn={isLoggedIn} />
+      <MobileMenuAside
+        header={header}
+        publicStoreDomain={publicStoreDomain}
+        isLoggedIn={isLoggedIn}
+      />
       {header && (
         <Header
           header={header}
@@ -54,7 +58,7 @@ export function PageLayout({
   );
 }
 
-function CartAside({ cart }: { cart: PageLayoutProps['cart'] }) {
+function CartAside({cart}: {cart: PageLayoutProps['cart']}) {
   return (
     <Suspense fallback={<Aside type="cart" heading="Shopping Cart" />}>
       <Await resolve={cart}>
@@ -63,7 +67,11 @@ function CartAside({ cart }: { cart: PageLayoutProps['cart'] }) {
           const description = `${itemCount} item${itemCount !== 1 ? 's' : ''} in your cart`;
 
           return (
-            <Aside type="cart" heading="Shopping Cart" description={description}>
+            <Aside
+              type="cart"
+              heading="Shopping Cart"
+              description={description}
+            >
               <CartMain cart={cart} layout="aside" />
             </Aside>
           );
@@ -72,7 +80,6 @@ function CartAside({ cart }: { cart: PageLayoutProps['cart'] }) {
     </Suspense>
   );
 }
-
 
 function MobileMenuAside({
   header,
@@ -83,7 +90,7 @@ function MobileMenuAside({
   publicStoreDomain: PageLayoutProps['publicStoreDomain'];
   isLoggedIn: PageLayoutProps['isLoggedIn'];
 }) {
-  const { close } = useAside();
+  const {close} = useAside();
 
   return (
     header.menu &&
@@ -93,7 +100,7 @@ function MobileMenuAside({
           {/* Search Input with Predictive Results */}
           <div className="relative mb-6">
             <SearchFormPredictive>
-              {({ fetchResults, goToSearch, inputRef }) => (
+              {({fetchResults, goToSearch, inputRef}) => (
                 <>
                   <div className="flex items-center border border-border bg-muted px-4 py-2 rounded-md">
                     <SearchIcon className="mr-3 size-4 text-muted-foreground shrink-0" />
@@ -111,13 +118,15 @@ function MobileMenuAside({
                   {/* Predictive search results */}
                   <div className="mt-2">
                     <SearchResultsPredictive>
-                      {({ items, total, term, state, closeSearch }) => {
+                      {({items, total, term, state, closeSearch}) => {
                         if (!term.current) return null;
 
                         if (state === 'loading') {
                           return (
                             <div className="bg-popover border rounded-md p-4 shadow-lg">
-                              <p className="text-sm text-muted-foreground">Loading...</p>
+                              <p className="text-sm text-muted-foreground">
+                                Loading...
+                              </p>
                             </div>
                           );
                         }

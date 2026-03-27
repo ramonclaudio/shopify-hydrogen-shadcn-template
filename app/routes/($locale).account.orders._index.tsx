@@ -7,28 +7,28 @@ import type {
   CustomerOrdersFragment,
   OrderItemFragment,
 } from 'customer-accountapi.generated';
-import { ArrowRight, Package, Search, ShoppingBag, X } from 'lucide-react';
-import { useRef } from 'react';
+import {ArrowRight, Package, Search, ShoppingBag, X} from 'lucide-react';
+import {useRef} from 'react';
 import {
   Link,
   useLoaderData,
   useNavigation,
   useSearchParams,
 } from 'react-router';
-import { PaginatedResourceSection } from '~/components/PaginatedResourceSection';
-import { Badge } from '~/components/ui/badge';
-import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
-import { Input } from '~/components/ui/input';
-import { Separator } from '~/components/ui/separator';
-import { CUSTOMER_ORDERS_QUERY } from '~/graphql/customer-account/CustomerOrdersQuery';
+import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
+import {Badge} from '~/components/ui/badge';
+import {Button} from '~/components/ui/button';
+import {Card, CardContent, CardHeader, CardTitle} from '~/components/ui/card';
+import {Input} from '~/components/ui/input';
+import {Separator} from '~/components/ui/separator';
+import {CUSTOMER_ORDERS_QUERY} from '~/graphql/customer-account/CustomerOrdersQuery';
 import {
   ORDER_FILTER_FIELDS,
   buildOrderSearchQuery,
   parseOrderFilters,
   type OrderFilterParams,
 } from '~/lib/orderFilters';
-import type { Route } from './+types/account.orders._index';
+import type {Route} from './+types/account.orders._index';
 
 type OrdersLoaderData = {
   customer: CustomerOrdersFragment;
@@ -36,11 +36,11 @@ type OrdersLoaderData = {
 };
 
 export const meta: Route.MetaFunction = () => {
-  return [{ title: 'Orders' }];
+  return [{title: 'Orders'}];
 };
 
-export async function loader({ request, context }: Route.LoaderArgs) {
-  const { customerAccount } = context;
+export async function loader({request, context}: Route.LoaderArgs) {
+  const {customerAccount} = context;
   const paginationVariables = getPaginationVariables(request, {
     pageBy: 20,
   });
@@ -49,7 +49,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const filters = parseOrderFilters(url.searchParams);
   const query = buildOrderSearchQuery(filters);
 
-  const { data, errors } = await customerAccount.query(CUSTOMER_ORDERS_QUERY, {
+  const {data, errors} = await customerAccount.query(CUSTOMER_ORDERS_QUERY, {
     variables: {
       ...paginationVariables,
       query,
@@ -61,12 +61,12 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     throw Error('Customer orders not found');
   }
 
-  return { customer: data.customer, filters };
+  return {customer: data.customer, filters};
 }
 
 export default function Orders() {
-  const { customer, filters } = useLoaderData<OrdersLoaderData>();
-  const { orders } = customer;
+  const {customer, filters} = useLoaderData<OrdersLoaderData>();
+  const {orders} = customer;
 
   return (
     <div className="space-y-6">
@@ -89,7 +89,7 @@ function OrdersTable({
     <div className="acccount-orders" aria-live="polite">
       {orders?.nodes.length ? (
         <PaginatedResourceSection<OrderItemFragment> connection={orders}>
-          {({ node: order }) => <OrderItem key={order.id} order={order} />}
+          {({node: order}) => <OrderItem key={order.id} order={order} />}
         </PaginatedResourceSection>
       ) : (
         <EmptyOrders hasFilters={hasFilters} />
@@ -98,7 +98,7 @@ function OrdersTable({
   );
 }
 
-function EmptyOrders({ hasFilters = false }: { hasFilters?: boolean }) {
+function EmptyOrders({hasFilters = false}: {hasFilters?: boolean}) {
   return (
     <Card>
       <CardContent className="text-center py-12">
@@ -120,7 +120,8 @@ function EmptyOrders({ hasFilters = false }: { hasFilters?: boolean }) {
           <>
             <h3 className="text-lg font-semibold mb-2">No orders yet</h3>
             <p className="text-muted-foreground mb-6">
-              You haven&apos;t placed any orders yet. Start shopping to see your orders here.
+              You haven&apos;t placed any orders yet. Start shopping to see your
+              orders here.
             </p>
             <Button asChild>
               <Link to="/collections">
@@ -225,7 +226,7 @@ function OrderSearchForm({
   );
 }
 
-function OrderItem({ order }: { order: OrderItemFragment }) {
+function OrderItem({order}: {order: OrderItemFragment}) {
   const fulfillmentStatus = flattenConnection(order.fulfillments)[0]?.status;
   return (
     <Card>

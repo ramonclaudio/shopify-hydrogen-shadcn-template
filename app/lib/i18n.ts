@@ -1,4 +1,4 @@
-import type { I18nBase } from '@shopify/hydrogen';
+import type {I18nBase} from '@shopify/hydrogen';
 
 export interface I18nLocale extends I18nBase {
   pathPrefix: string;
@@ -18,5 +18,5 @@ export function getLocaleFromRequest(request: Request): I18nLocale {
     [language, country] = firstPathPart.split('-') as I18nFromUrl;
   }
 
-  return { language, country, pathPrefix };
+  return {language, country, pathPrefix};
 }

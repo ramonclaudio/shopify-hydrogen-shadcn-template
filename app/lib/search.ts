@@ -7,7 +7,7 @@ type ResultWithItems<Type extends 'predictive' | 'regular', Items> = {
   type: Type;
   term: string;
   error?: string;
-  result: { total: number; items: Items };
+  result: {total: number; items: Items};
 };
 
 export type RegularSearchReturn = ResultWithItems<

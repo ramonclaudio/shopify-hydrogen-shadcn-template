@@ -1,23 +1,23 @@
-import { type Shop } from '@shopify/hydrogen/storefront-api-types';
-import { ArrowLeft } from 'lucide-react';
-import { Link, useLoaderData } from 'react-router';
-import { Button } from '~/components/ui/button';
-import { Card, CardContent } from '~/components/ui/card';
-import { Separator } from '~/components/ui/separator';
-import type { Route } from './+types/policies.$handle';
+import {type Shop} from '@shopify/hydrogen/storefront-api-types';
+import {ArrowLeft} from 'lucide-react';
+import {Link, useLoaderData} from 'react-router';
+import {Button} from '~/components/ui/button';
+import {Card, CardContent} from '~/components/ui/card';
+import {Separator} from '~/components/ui/separator';
+import type {Route} from './+types/policies.$handle';
 
 type SelectedPolicies = keyof Pick<
   Shop,
   'privacyPolicy' | 'shippingPolicy' | 'termsOfService' | 'refundPolicy'
 >;
 
-export const meta: Route.MetaFunction = ({ data }: { data: any }) => {
-  return [{ title: `Hydrogen | ${data?.policy.title ?? ''}` }];
+export const meta: Route.MetaFunction = ({data}: {data: any}) => {
+  return [{title: `Hydrogen | ${data?.policy.title ?? ''}`}];
 };
 
-export async function loader({ params, context }: Route.LoaderArgs) {
+export async function loader({params, context}: Route.LoaderArgs) {
   if (!params.handle) {
-    throw new Response('No handle was passed in', { status: 404 });
+    throw new Response('No handle was passed in', {status: 404});
   }
 
   const policyName = params.handle.replace(
@@ -39,14 +39,14 @@ export async function loader({ params, context }: Route.LoaderArgs) {
   const policy = data.shop?.[policyName];
 
   if (!policy) {
-    throw new Response('Could not find the policy', { status: 404 });
+    throw new Response('Could not find the policy', {status: 404});
   }
 
-  return { policy };
+  return {policy};
 }
 
 export default function Policy() {
-  const { policy } = useLoaderData<typeof loader>();
+  const {policy} = useLoaderData<typeof loader>();
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -68,7 +68,7 @@ export default function Policy() {
           <Separator />
 
           <div
-            dangerouslySetInnerHTML={{ __html: policy.body }}
+            dangerouslySetInnerHTML={{__html: policy.body}}
             className="prose prose-slate max-w-none
               prose-headings:font-bold prose-headings:tracking-tight
               prose-h1:text-3xl prose-h2:text-2xl prose-h3:text-xl

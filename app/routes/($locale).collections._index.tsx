@@ -1,10 +1,10 @@
-import { getPaginationVariables, Image } from '@shopify/hydrogen';
-import { Link, useLoaderData } from 'react-router';
-import type { CollectionFragment } from 'storefrontapi.generated';
-import { PaginatedResourceSection } from '~/components/PaginatedResourceSection';
-import { AspectRatio } from '~/components/ui/aspect-ratio';
-import { Card, CardContent } from '~/components/ui/card';
-import type { Route } from './+types/collections._index';
+import {getPaginationVariables, Image} from '@shopify/hydrogen';
+import {Link, useLoaderData} from 'react-router';
+import type {CollectionFragment} from 'storefrontapi.generated';
+import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
+import {AspectRatio} from '~/components/ui/aspect-ratio';
+import {Card, CardContent} from '~/components/ui/card';
+import type {Route} from './+types/collections._index';
 
 export async function loader(args: Route.LoaderArgs) {
   // Start fetching non-critical data without blocking time to first byte
@@ -13,26 +13,26 @@ export async function loader(args: Route.LoaderArgs) {
   // Await the critical data required to render initial state of the page
   const criticalData = await loadCriticalData(args);
 
-  return { ...deferredData, ...criticalData };
+  return {...deferredData, ...criticalData};
 }
 
 /**
  * Load data necessary for rendering content above the fold. This is the critical data
  * needed to render the page. If it's unavailable, the whole page should 400 or 500 error.
  */
-async function loadCriticalData({ context, request }: Route.LoaderArgs) {
+async function loadCriticalData({context, request}: Route.LoaderArgs) {
   const paginationVariables = getPaginationVariables(request, {
     pageBy: 4,
   });
 
-  const [{ collections }] = await Promise.all([
+  const [{collections}] = await Promise.all([
     context.storefront.query(COLLECTIONS_QUERY, {
       variables: paginationVariables,
     }),
     // Add other queries here, so that they are loaded in parallel
   ]);
 
-  return { collections };
+  return {collections};
 }
 
 /**
@@ -40,19 +40,17 @@ async function loadCriticalData({ context, request }: Route.LoaderArgs) {
  * fetched after the initial page load. If it's unavailable, the page should still 200.
  * Make sure to not throw any errors here, as it will cause the page to 500.
  */
-function loadDeferredData({ context }: Route.LoaderArgs) {
+function loadDeferredData({context}: Route.LoaderArgs) {
   return {};
 }
 
 export default function Collections() {
-  const { collections } = useLoaderData<typeof loader>();
+  const {collections} = useLoaderData<typeof loader>();
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight mb-4">
-          Collections
-        </h1>
+        <h1 className="text-3xl font-bold tracking-tight mb-4">Collections</h1>
         <p className="text-muted-foreground min-h-[24px]">
           Browse our curated collections
         </p>
@@ -61,7 +59,7 @@ export default function Collections() {
         connection={collections}
         resourcesClassName="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
       >
-        {({ node: collection, index }) => (
+        {({node: collection, index}) => (
           <CollectionItem
             key={collection.id}
             collection={collection}
