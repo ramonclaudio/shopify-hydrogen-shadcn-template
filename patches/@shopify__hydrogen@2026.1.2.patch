@@ -1,0 +1,55 @@
+diff --git a/dist/vite/plugin.js b/dist/vite/plugin.js
+index 648375041d2c71951318a7349f7e203f07b1108a..15237458866af2acbf15b49e88063d59c40d84ae 100644
+--- a/dist/vite/plugin.js
++++ b/dist/vite/plugin.js
+@@ -12,26 +12,19 @@ import {
+ var sharedOptions = {};
+ function hydrogen(pluginOptions = {}) {
+   let middlewareOptions = {};
+-  const isHydrogenMonorepo = new URL(
+-    "../../..",
+-    import.meta.url
+-  ).pathname.endsWith("/hydrogen/packages/");
+   return [
+     {
+       name: "hydrogen:main",
+       config(_, env) {
+         sharedOptions.command = env.command;
+-        const isHydrogenMonorepo2 = new URL(
++        const isHydrogenMonorepo = new URL(
+           "../../..",
+           import.meta.url
+-        ).pathname.endsWith("/hydrogen/packages/");
++        ).pathname.endsWith("/packages/");
+         return {
+           build: {
+             outDir: "dist"
+           },
+-          server: {
+-            watch: null
+-          },
+           ssr: {
+             optimizeDeps: {
+               // Add CJS dependencies that break code in workerd
+@@ -52,7 +45,7 @@ function hydrogen(pluginOptions = {}) {
+           optimizeDeps: {
+             // Vite performs an initial reload after optimizing these dependencies.
+             // Do it early to avoid the initial reload:
+-            include: isHydrogenMonorepo2 ? [
++            include: isHydrogenMonorepo ? [
+               // In monorepo, optimize non-Hydrogen packages to allow
+               // source code changes to be reflected without cache issues
+               "content-security-policy-builder",
+diff --git a/package.json b/package.json
+index cba86f52d6472344b743b5d52d9da208923cf386..433ec671c3643a82a837c6b666352e364a022916 100644
+--- a/package.json
++++ b/package.json
+@@ -105,7 +105,7 @@
+     "react-router": "7.12.0",
+     "@react-router/dev": "7.12.0",
+     "react": "^18.3.1 || ~19.0.3 || ~19.1.4 || ^19.2.3",
+-    "vite": "^5.1.0 || ^6.2.1"
++    "vite": "^5.1.0 || ^6.2.1 || ^7.0.0 || ^8.0.0"
+   },
+   "peerDependenciesMeta": {
+     "vite": {

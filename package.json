@@ -41,7 +41,7 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-toggle": "^1.1.10",
     "@radix-ui/react-tooltip": "^1.2.8",
-    "@shopify/hydrogen": "file:/tmp/hydrogen-pr-3617-packs/shopify-hydrogen-2026.1.2.tgz",
+    "@shopify/hydrogen": "2026.1.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -72,9 +72,8 @@
     "@react-router/dev": "^7.13.2",
     "@react-router/fs-routes": "^7.13.2",
     "@shopify/cli": "3.92.1",
-    "@shopify/cli-hydrogen": "file:/tmp/hydrogen-pr-3617-packs/shopify-cli-hydrogen-11.1.11.tgz",
     "@shopify/hydrogen-codegen": "^0.3.3",
-    "@shopify/mini-oxygen": "file:/tmp/hydrogen-pr-3617-packs/shopify-mini-oxygen-4.0.1.tgz",
+    "@shopify/mini-oxygen": "^4.0.1",
     "@shopify/oxygen-workers-types": "^4.2.0",
     "@shopify/prettier-config": "^1.1.4",
     "@tailwindcss/vite": "^4.2.2",
@@ -97,6 +96,12 @@
     "prettier": "^3.8.1",
     "typescript": "^6.0.2",
     "vite": "^8.0.3"
+  },
+  "pnpm": {
+    "patchedDependencies": {
+      "@shopify/hydrogen@2026.1.2": "patches/@shopify__hydrogen@2026.1.2.patch",
+      "@shopify/mini-oxygen@4.0.1": "patches/@shopify__mini-oxygen@4.0.1.patch"
+    }
   },
   "engines": {
     "node": ">=18.0.0"

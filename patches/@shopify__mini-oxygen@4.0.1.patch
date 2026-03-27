@@ -1,0 +1,2361 @@
+diff --git a/dist/node/server.js b/dist/node/server.js
+index c33f6eb07013559208140305c3b1593136d8875c..d8cef1d6b778b0febec79ec652798d8cbeee7f18 100644
+--- a/dist/node/server.js
++++ b/dist/node/server.js
+@@ -174,9 +174,10 @@ function createRequestMiddleware(mf, {
+ function sendProxyRequest(req, res, proxyServer) {
+   const proxyRequest = new Promise(function(_resolve, reject) {
+     const url = urlFromRequest(req);
++    const [host = proxyServer, port = "80"] = proxyServer.split(":");
+     const options = {
+-      host: proxyServer.split(":")[0],
+-      port: parseInt(proxyServer.split(":")[1], 10),
++      host,
++      port: parseInt(port, 10),
+       path: `${url.protocol}//${url.host}${url.pathname}`,
+       headers: {
+         ...req.headers,
+diff --git a/dist/vite/entry-error.d.ts b/dist/vite/entry-error.d.ts
+index a9ab3a4b14516044c9e007e50c236d280d5aaa2b..514d8e9508fb86722a91557e11b783d66a6cff00 100644
+--- a/dist/vite/entry-error.d.ts
++++ b/dist/vite/entry-error.d.ts
+@@ -1,6 +1,5 @@
+ import { ServerResponse } from 'node:http';
+ import { ViteDevServer } from 'vite';
+-import { Response } from 'miniflare';
+ 
+ declare function isEntrypointError(webResponse: Response): boolean;
+ type CustomEntryPointErrorHandler = (params: {
+diff --git a/dist/vite/environment.d.ts b/dist/vite/environment.d.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..5624a0a8557db56fcb7d252237ff7c6bb5de39ac
+--- /dev/null
++++ b/dist/vite/environment.d.ts
+@@ -0,0 +1,21 @@
++import { FetchableDevEnvironment, ResolvedConfig, ViteDevServer } from 'vite';
++import { MiniOxygenViteOptions, InternalMiniOxygenOptions } from './server-middleware.js';
++import '../worker/index.js';
++import 'miniflare';
++import '../worker/assets.js';
++import 'http';
++import 'node:http';
++import '../worker/handler.js';
++import './entry-error.js';
++
++type MiniOxygenRuntimeOptions = Partial<Pick<MiniOxygenViteOptions, 'entry' | 'env' | 'inspectorPort' | 'logRequestLine' | 'debug'>> & InternalMiniOxygenOptions & {
++    envPromise?: Promise<Record<string, any>>;
++};
++type RuntimeOptionsResolver = (options: MiniOxygenRuntimeOptions, viteDevServer: ViteDevServer) => Promise<MiniOxygenViteOptions>;
++type MiniOxygenDevEnvironment = FetchableDevEnvironment & {
++    configureRuntime(options: MiniOxygenRuntimeOptions): void;
++};
++declare function mergeMiniOxygenRuntimeOptions(current: MiniOxygenRuntimeOptions, next: MiniOxygenRuntimeOptions): MiniOxygenRuntimeOptions;
++declare function createMiniOxygenDevEnvironment(name: string, config: ResolvedConfig, runtimeOptions: MiniOxygenRuntimeOptions, resolveRuntimeOptions: RuntimeOptionsResolver): MiniOxygenDevEnvironment;
++
++export { type MiniOxygenDevEnvironment, type MiniOxygenRuntimeOptions, createMiniOxygenDevEnvironment, mergeMiniOxygenRuntimeOptions };
+diff --git a/dist/vite/environment.js b/dist/vite/environment.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..450f08897d0ba549417a9b5dd82384b76646304f
+--- /dev/null
++++ b/dist/vite/environment.js
+@@ -0,0 +1,103 @@
++import {
++  createFetchableDevEnvironment
++} from "vite";
++import {
++  WARMUP_PATHNAME,
++  getViteUrl,
++  startMiniOxygenRuntime,
++  toMiniflareRequest
++} from "./server-middleware.js";
++function mergeMiniOxygenRuntimeOptions(current, next) {
++  return {
++    ...current,
++    ...next,
++    env: { ...current.env, ...next.env },
++    crossBoundarySetup: [
++      ...current.crossBoundarySetup || [],
++      ...next.crossBoundarySetup || []
++    ]
++  };
++}
++function createMiniOxygenDevEnvironment(name, config, runtimeOptions, resolveRuntimeOptions) {
++  let currentRuntimeOptions = runtimeOptions;
++  let viteDevServer;
++  let miniOxygen;
++  let pendingRuntime;
++  function runtimeHasStarted() {
++    return Boolean(pendingRuntime || miniOxygen && !miniOxygen.isDisposed);
++  }
++  const environment = createFetchableDevEnvironment(name, config, {
++    // Browser HMR uses the client environment. SSR updates are picked up on
++    // the next request after Vite invalidates the SSR module graph.
++    hot: false,
++    handleRequest: async (request) => {
++      if (miniOxygen?.isDisposed) {
++        miniOxygen = void 0;
++      }
++      if (!miniOxygen) {
++        if (!pendingRuntime) {
++          pendingRuntime = startRuntime().catch((error) => {
++            pendingRuntime = void 0;
++            throw error;
++          });
++        }
++        miniOxygen = await pendingRuntime;
++        pendingRuntime = void 0;
++      }
++      const response = await miniOxygen.dispatchFetch(
++        toMiniflareRequest(request)
++      );
++      return new Response(response.body, {
++        status: response.status,
++        statusText: response.statusText,
++        headers: Array.from(response.headers.entries())
++      });
++    }
++  });
++  const originalListen = environment.listen.bind(environment);
++  const originalClose = environment.close.bind(environment);
++  async function startRuntime() {
++    if (!viteDevServer) {
++      throw new Error(
++        "MiniOxygen dev environment was used before the Vite server was ready."
++      );
++    }
++    const options = await resolveRuntimeOptions(
++      currentRuntimeOptions,
++      viteDevServer
++    );
++    return startMiniOxygenRuntime(options);
++  }
++  async function warmup() {
++    await new Promise((resolve) => setTimeout(resolve, 200));
++    const viteUrl = viteDevServer && getViteUrl(viteDevServer);
++    if (!viteUrl) return;
++    await environment.dispatchFetch(new Request(new URL(WARMUP_PATHNAME, viteUrl))).catch(() => {
++    });
++  }
++  return Object.assign(environment, {
++    configureRuntime(options) {
++      if (runtimeHasStarted()) {
++        throw new Error(
++          "MiniOxygen runtime options cannot be updated after the runtime has started."
++        );
++      }
++      currentRuntimeOptions = mergeMiniOxygenRuntimeOptions(
++        currentRuntimeOptions,
++        options
++      );
++    },
++    async listen(server) {
++      viteDevServer = server;
++      await originalListen(server);
++      void warmup();
++    },
++    async close() {
++      await Promise.allSettled([originalClose(), miniOxygen?.dispose()]);
++    }
++  });
++}
++export {
++  createMiniOxygenDevEnvironment,
++  mergeMiniOxygenRuntimeOptions
++};
+diff --git a/dist/vite/plugin.d.ts b/dist/vite/plugin.d.ts
+index 49e7ddb76926d1386c3c4c33c2e23c6c73e59a56..c406ba9a23991ccd9e8773ca14508f286e03e285 100644
+--- a/dist/vite/plugin.d.ts
++++ b/dist/vite/plugin.d.ts
+@@ -1,5 +1,7 @@
+ import { Plugin } from 'vite';
+-import { MiniOxygenViteOptions, InternalMiniOxygenOptions } from './server-middleware.js';
++import { MiniOxygenRuntimeOptions } from './environment.js';
++export { MiniOxygenDevEnvironment } from './environment.js';
++import { MiniOxygenViteOptions } from './server-middleware.js';
+ import '../worker/index.js';
+ import 'miniflare';
+ import '../worker/assets.js';
+@@ -9,9 +11,7 @@ import '../worker/handler.js';
+ import './entry-error.js';
+ 
+ type OxygenPluginOptions = Partial<Pick<MiniOxygenViteOptions, 'entry' | 'env' | 'inspectorPort' | 'logRequestLine' | 'debug'>>;
+-type OxygenApiOptions = OxygenPluginOptions & InternalMiniOxygenOptions & {
+-    envPromise?: Promise<Record<string, any>>;
+-};
++type OxygenApiOptions = MiniOxygenRuntimeOptions;
+ /**
+  * For internal use only.
+  * @private
+@@ -19,6 +19,7 @@ type OxygenApiOptions = OxygenPluginOptions & InternalMiniOxygenOptions & {
+ type OxygenPlugin = Plugin<{
+     registerPluginOptions(newOptions: OxygenApiOptions): void;
+ }>;
++
+ /**
+  * Runs backend code in an Oxygen worker instead of Node.js during development.
+  * If used with `remix`, place it before it in the Vite plugin list.
+diff --git a/dist/vite/plugin.js b/dist/vite/plugin.js
+index 1c03714e0d00be8cfd1c26f7f113e0c983192560..d86c90701402d9bfb37caf8bb27b0e87c6ac030e 100644
+--- a/dist/vite/plugin.js
++++ b/dist/vite/plugin.js
+@@ -1,13 +1,39 @@
+ import { defaultClientConditions } from "vite";
+-import path from "node:path";
++import {
++  createMiniOxygenDevEnvironment,
++  mergeMiniOxygenRuntimeOptions
++} from "./environment.js";
+ import {
+   setupOxygenMiddleware
+ } from "./server-middleware.js";
+ const DEFAULT_SSR_ENTRY = "./server";
+ function oxygen(pluginOptions = {}) {
+-  let resolvedConfig;
+-  let absoluteWorkerEntryFile;
+   let apiOptions = {};
++  let miniOxygenEnvironment;
++  const resolveMiniOxygenOptions = async (runtimeOptions, viteDevServer) => {
++    const entry = runtimeOptions.entry ?? pluginOptions.entry ?? DEFAULT_SSR_ENTRY;
++    const remoteEnv = await Promise.resolve(runtimeOptions.envPromise);
++    return {
++      entry,
++      viteDevServer,
++      crossBoundarySetup: runtimeOptions.crossBoundarySetup,
++      env: { ...remoteEnv, ...runtimeOptions.env, ...pluginOptions.env },
++      debug: runtimeOptions.debug ?? pluginOptions.debug ?? false,
++      inspectorPort: runtimeOptions.inspectorPort ?? pluginOptions.inspectorPort,
++      requestHook: runtimeOptions.requestHook,
++      entryPointErrorHandler: runtimeOptions.entryPointErrorHandler,
++      compatibilityDate: runtimeOptions.compatibilityDate,
++      logRequestLine: (
++        // Give priority to the plugin option over the CLI option here,
++        // since the CLI one is just a default, not a user-provided flag.
++        pluginOptions.logRequestLine ?? runtimeOptions.logRequestLine
++      )
++    };
++  };
++  const applyRuntimeOptions = (newOptions) => {
++    miniOxygenEnvironment?.configureRuntime(newOptions);
++    apiOptions = mergeMiniOxygenRuntimeOptions(apiOptions, newOptions);
++  };
+   return [
+     {
+       name: "oxygen:main",
+@@ -41,49 +67,41 @@ function oxygen(pluginOptions = {}) {
+           }
+         };
+       },
++      configEnvironment(name) {
++        if (name !== "ssr") return;
++        return {
++          resolve: {
++            conditions: ["worker", "workerd", ...defaultClientConditions]
++          },
++          dev: {
++            createEnvironment(name2, config) {
++              return miniOxygenEnvironment = createMiniOxygenDevEnvironment(
++                name2,
++                config,
++                apiOptions,
++                resolveMiniOxygenOptions
++              );
++            }
++          }
++        };
++      },
+       api: {
+         registerPluginOptions(newOptions) {
+-          apiOptions = {
+-            ...apiOptions,
+-            ...newOptions,
+-            env: { ...apiOptions.env, ...newOptions.env },
+-            crossBoundarySetup: [
+-              ...apiOptions.crossBoundarySetup || [],
+-              ...newOptions.crossBoundarySetup || []
+-            ]
+-          };
++          applyRuntimeOptions(newOptions);
+         }
+       },
+       configureServer: {
+         order: "pre",
+         handler: (viteDevServer) => {
+-          const entry = apiOptions.entry ?? pluginOptions.entry ?? DEFAULT_SSR_ENTRY;
+-          resolvedConfig = viteDevServer.config;
+-          absoluteWorkerEntryFile = path.isAbsolute(entry) ? entry : path.resolve(resolvedConfig.root, entry);
+           return () => {
+-            setupOxygenMiddleware(viteDevServer, async () => {
+-              const remoteEnv = await Promise.resolve(apiOptions.envPromise);
+-              return {
+-                entry,
+-                viteDevServer,
+-                crossBoundarySetup: apiOptions.crossBoundarySetup,
+-                env: { ...remoteEnv, ...apiOptions.env, ...pluginOptions.env },
+-                debug: apiOptions.debug ?? pluginOptions.debug ?? false,
+-                inspectorPort: apiOptions.inspectorPort ?? pluginOptions.inspectorPort,
+-                requestHook: apiOptions.requestHook,
+-                entryPointErrorHandler: apiOptions.entryPointErrorHandler,
+-                compatibilityDate: apiOptions.compatibilityDate,
+-                logRequestLine: (
+-                  // Give priority to the plugin option over the CLI option here,
+-                  // since the CLI one is just a default, not a user-provided flag.
+-                  pluginOptions?.logRequestLine ?? apiOptions.logRequestLine
+-                )
+-              };
+-            });
++            setupOxygenMiddleware(
++              viteDevServer,
++              () => apiOptions.entryPointErrorHandler
++            );
+           };
+         }
+       },
+-      generateBundle(_, bundle) {
++      generateBundle() {
+         if (apiOptions.compatibilityDate) {
+           if (!/^\d{4}-\d{2}-\d{2}$/.test(apiOptions.compatibilityDate)) {
+             throw new Error(
+@@ -95,18 +113,11 @@ function oxygen(pluginOptions = {}) {
+             version: 1,
+             compatibility_date: apiOptions.compatibilityDate
+           };
+-          bundle[oxygenJsonFile] = {
++          this.emitFile({
+             type: "asset",
+             fileName: oxygenJsonFile,
+-            needsCodeReference: false,
+-            source: JSON.stringify(oxygenJsonContent, null, 2),
+-            names: [oxygenJsonFile],
+-            originalFileNames: [oxygenJsonFile],
+-            // name and originalFileName should be deprecated .. but
+-            // for some reason, removing them breaks typescript check
+-            name: oxygenJsonFile,
+-            originalFileName: oxygenJsonFile
+-          };
++            source: JSON.stringify(oxygenJsonContent, null, 2)
++          });
+         }
+       }
+     }
+diff --git a/dist/vite/server-middleware.d.ts b/dist/vite/server-middleware.d.ts
+index ea2c856192212f1e5cf69867a4b7da1e8c84fd8a..2f60469559f9c07cbe8e632270a792109b68c6fe 100644
+--- a/dist/vite/server-middleware.d.ts
++++ b/dist/vite/server-middleware.d.ts
+@@ -1,12 +1,13 @@
+ import { ViteDevServer } from 'vite';
+-import { RequestHook } from '../worker/index.js';
++import { RequestHook, createMiniOxygen } from '../worker/index.js';
++import { Request as Request$1 } from 'miniflare';
+ import { CustomEntryPointErrorHandler } from './entry-error.js';
+-import 'miniflare';
+ import '../worker/assets.js';
+ import 'http';
+ import 'node:http';
+ import '../worker/handler.js';
+ 
++declare const WARMUP_PATHNAME = "/__vite_warmup";
+ type InternalMiniOxygenOptions = {
+     /**
+      * A compatibility date to choose a version of the Oxygen worker.
+@@ -52,6 +53,10 @@ type MiniOxygenViteOptions = InternalMiniOxygenOptions & {
+     inspectorPort?: number;
+     logRequestLine?: null | RequestHook;
+ };
+-declare function setupOxygenMiddleware(viteDevServer: ViteDevServer, getMiniOxygenOptions: () => Promise<MiniOxygenViteOptions>): void;
++type MiniOxygen = ReturnType<typeof createMiniOxygen>;
++declare function startMiniOxygenRuntime({ viteDevServer, env, debug, inspectorPort, crossBoundarySetup, entry: workerEntryFile, requestHook, logRequestLine, compatibilityDate, }: MiniOxygenViteOptions): MiniOxygen;
++declare function setupOxygenMiddleware(viteDevServer: ViteDevServer, getEntryPointErrorHandler?: () => CustomEntryPointErrorHandler | undefined): void;
++declare function getViteUrl(viteDevServer: ViteDevServer): string | undefined;
++declare function toMiniflareRequest(request: Request): Request$1;
+ 
+-export { type InternalMiniOxygenOptions, type MiniOxygenViteOptions, setupOxygenMiddleware };
++export { type InternalMiniOxygenOptions, type MiniOxygen, type MiniOxygenViteOptions, WARMUP_PATHNAME, getViteUrl, setupOxygenMiddleware, startMiniOxygenRuntime, toMiniflareRequest };
+diff --git a/dist/vite/server-middleware.js b/dist/vite/server-middleware.js
+index 892882a5c31d4cbe20ca7ee0a59b4fea3ecde893..9d1969d9bfcd6a0d70c5fabb46ca6c6adde6b297 100644
+--- a/dist/vite/server-middleware.js
++++ b/dist/vite/server-middleware.js
+@@ -1,18 +1,19 @@
+-import { fetchModule } from "vite";
++import {
++  isFetchableDevEnvironment
++} from "vite";
+ import { fileURLToPath } from "node:url";
+ import {
+   createMiniOxygen,
+-  Response,
++  Response as MiniOxygenResponse,
+   defaultLogRequestLine
+ } from "../worker/index.js";
+ import { Request as MiniflareRequest } from "miniflare";
+-import { pipeFromWeb, toURL, toWeb } from "./utils.js";
++import { pipeFromWeb, toWeb } from "./utils.js";
+ import {
+   isEntrypointError,
+   handleEntrypointError
+ } from "./entry-error.js";
+ const scriptPath = fileURLToPath(new URL("./worker-entry.js", import.meta.url));
+-const FETCH_MODULE_PATHNAME = "/__vite_fetch_module";
+ const WARMUP_PATHNAME = "/__vite_warmup";
+ function startMiniOxygenRuntime({
+   viteDevServer,
+@@ -28,8 +29,9 @@ function startMiniOxygenRuntime({
+   const wrappedHook = requestHook || logRequestLine ? async (request) => {
+     const info = await request.json();
+     await Promise.all([requestHook?.(info), logRequestLine?.(info)]);
+-    return new Response("ok");
++    return new MiniOxygenResponse("ok");
+   } : null;
++  const wrappedViteInvoke = async (request) => handleViteInvokeRequest(viteDevServer, request);
+   const miniOxygen = createMiniOxygen({
+     debug,
+     inspectorPort,
+@@ -40,13 +42,12 @@ function startMiniOxygenRuntime({
+         modulesRoot: "/",
+         modules: [{ type: "ESModule", path: scriptPath }],
+         serviceBindings: {
++          __VITE_INVOKE_MODULE: wrappedViteInvoke,
+           ...wrappedHook && { __VITE_REQUEST_HOOK: wrappedHook }
+         },
+         bindings: {
+           ...env,
+-          __VITE_ROOT: viteDevServer.config.root,
+           __VITE_RUNTIME_EXECUTE_URL: workerEntryFile,
+-          __VITE_FETCH_MODULE_PATHNAME: FETCH_MODULE_PATHNAME,
+           __VITE_WARMUP_PATHNAME: WARMUP_PATHNAME
+         },
+         unsafeEvalBinding: "__VITE_UNSAFE_EVAL",
+@@ -62,7 +63,7 @@ function startMiniOxygenRuntime({
+               acc[`wrapped_service_${index}`] = async (request) => {
+                 const payload = await request.json();
+                 const result = await binding(...payload);
+-                return new Response(JSON.stringify(result ?? ""));
++                return new MiniOxygenResponse(JSON.stringify(result ?? ""));
+               };
+             }
+             return acc;
+@@ -95,68 +96,32 @@ function startMiniOxygenRuntime({
+       }
+     ]
+   });
+-  const viteClose = viteDevServer.close;
+-  viteDevServer.close = async () => {
+-    await Promise.allSettled([viteClose(), miniOxygen.dispose()]);
+-  };
+   return miniOxygen;
+ }
+-function setupOxygenMiddleware(viteDevServer, getMiniOxygenOptions) {
+-  viteDevServer.middlewares.use(
+-    FETCH_MODULE_PATHNAME,
+-    function o2HandleModuleFetch(req, res) {
+-      const url = toURL(req);
+-      const id = url.searchParams.get("id");
+-      const importer = url.searchParams.get("importer") ?? void 0;
+-      if (id) {
+-        res.setHeader("Cache-Control", "no-store");
+-        res.setHeader("Content-Type", "application/json");
+-        fetchModule(viteDevServer.environments["ssr"], id, importer).then((ssrModule) => res.end(JSON.stringify(ssrModule))).catch((error) => {
+-          console.error("Error during module fetch:", error);
+-          res.writeHead(500, { "Content-Type": "text/plain" });
+-          res.end("Internal server error");
+-        });
++function setupOxygenMiddleware(viteDevServer, getEntryPointErrorHandler) {
++  viteDevServer.middlewares.use(function o2HandleWorkerRequest(req, res, next) {
++    const environment = viteDevServer.environments["ssr"];
++    if (!isFetchableDevEnvironment(environment)) {
++      next();
++      return;
++    }
++    environment.dispatchFetch(toWeb(req)).then(async (webResponse) => {
++      if (isEntrypointError(webResponse)) {
++        await handleEntrypointError(
++          viteDevServer,
++          webResponse,
++          res,
++          getEntryPointErrorHandler?.()
++        );
+       } else {
+-        res.writeHead(400, { "Content-Type": "text/plain" });
+-        res.end("Invalid request");
++        await pipeFromWeb(webResponse, res);
+       }
+-    }
+-  );
+-  let miniOxygen;
+-  let miniOxygenOptions;
+-  viteDevServer.middlewares.use(function o2HandleWorkerRequest(req, res) {
+-    const ready = miniOxygen && !miniOxygen.isDisposed ? Promise.resolve() : getMiniOxygenOptions().then((options) => {
+-      miniOxygenOptions = options;
+-      miniOxygen = startMiniOxygenRuntime(options);
++    }).catch((error) => {
++      console.error("MiniOxygen: Error during evaluation:", error);
++      res.writeHead(500);
++      res.end();
+     });
+-    ready.then(
+-      () => miniOxygen.dispatchFetch(toMiniflareRequest(toWeb(req))).then(async (webResponse) => {
+-        if (isEntrypointError(webResponse)) {
+-          await handleEntrypointError(
+-            viteDevServer,
+-            webResponse,
+-            res,
+-            miniOxygenOptions.entryPointErrorHandler
+-          );
+-        } else {
+-          await pipeFromWeb(webResponse, res);
+-        }
+-      }).catch((error) => {
+-        console.error("MiniOxygen: Error during evaluation:", error);
+-        res.writeHead(500);
+-        res.end();
+-      })
+-    );
+   });
+-  const warmupWorkerdCache = async () => {
+-    await new Promise((resolve) => setTimeout(resolve, 200));
+-    const viteUrl = getViteUrl(viteDevServer);
+-    if (viteUrl) {
+-      fetch(new URL(WARMUP_PATHNAME, viteUrl)).catch(() => {
+-      });
+-    }
+-  };
+-  viteDevServer.httpServer?.listening ? warmupWorkerdCache() : viteDevServer.httpServer?.once("listening", warmupWorkerdCache);
+ }
+ function getViteUrl(viteDevServer) {
+   let viteUrl = viteDevServer.resolvedUrls?.local[0] ?? viteDevServer.resolvedUrls?.network[0];
+@@ -178,6 +143,48 @@ function toMiniflareRequest(request) {
+     duplex: "half"
+   });
+ }
++async function handleViteInvokeRequest(viteDevServer, request) {
++  try {
++    const payload = await request.json();
++    const result = await viteDevServer.environments["ssr"].hot.handleInvoke(payload);
++    return new MiniOxygenResponse(JSON.stringify(result), {
++      headers: {
++        "Cache-Control": "no-store",
++        "Content-Type": "application/json"
++      }
++    });
++  } catch (error) {
++    console.error("Error during Vite runner invoke:", error);
++    return new MiniOxygenResponse(
++      JSON.stringify({ error: serializeInvokeError(error) }),
++      {
++        status: 500,
++        headers: {
++          "Cache-Control": "no-store",
++          "Content-Type": "application/json"
++        }
++      }
++    );
++  }
++}
++function serializeInvokeError(error) {
++  if (error instanceof Error) {
++    const errorWithCode = error;
++    return {
++      message: error.message,
++      stack: error.stack,
++      ...error.cause ? { cause: error.cause } : {},
++      ...errorWithCode.code ? { code: errorWithCode.code } : {}
++    };
++  }
++  return {
++    message: typeof error === "string" ? error : "Unknown Vite runner invoke error"
++  };
++}
+ export {
+-  setupOxygenMiddleware
++  WARMUP_PATHNAME,
++  getViteUrl,
++  setupOxygenMiddleware,
++  startMiniOxygenRuntime,
++  toMiniflareRequest
+ };
+diff --git a/dist/vite/utils.d.ts b/dist/vite/utils.d.ts
+index 3812c59c115327d7d75107e93dadda16344df8b9..5ca0717fb8fde7b6f98cf033129ebb44cf022365 100644
+--- a/dist/vite/utils.d.ts
++++ b/dist/vite/utils.d.ts
+@@ -1,5 +1,4 @@
+ import { ServerResponse, IncomingMessage } from 'node:http';
+-import { Response, Request } from 'miniflare';
+ 
+ /**
+  * Creates a fully qualified URL from a Node request or a string.
+@@ -9,7 +8,7 @@ declare function toURL(req?: string | IncomingMessage, origin?: string): URL;
+ /**
+  * Turns a Node request into a Web request by using native Node APIs.
+  */
+-declare function toWeb(req: IncomingMessage, headers?: Record<string, string>): Request<any>;
++declare function toWeb(req: IncomingMessage, headers?: Record<string, string>): Request<unknown, any>;
+ /**
+  * Reads from a Web response and writes to a Node response
+  * using @mjackson/node-fetch-server for proper streaming support.
+diff --git a/dist/vite/utils.js b/dist/vite/utils.js
+index fa0710d7d9b11e467d31ae3db6de909a547ad5fb..d67b5deda464d917e906ab887391cdb80f3aa81f 100644
+--- a/dist/vite/utils.js
++++ b/dist/vite/utils.js
+@@ -1,6 +1,5 @@
+ import { Readable } from "node:stream";
+ import { sendResponse } from "@mjackson/node-fetch-server";
+-import { Request } from "../worker/index.js";
+ function toURL(req = "/", origin) {
+   const isRequest = typeof req !== "string";
+   let pathname = (isRequest ? req.url : req) || "/";
+diff --git a/dist/vite/worker-entry.js b/dist/vite/worker-entry.js
+index 15691d02bdcaae94e45aa6b629dcb2b91fd97dff..e0c4feacb6f4725ea59f7e882ecf097e3211148b 100644
+--- a/dist/vite/worker-entry.js
++++ b/dist/vite/worker-entry.js
+@@ -1,12 +1,9 @@
+-// ../../node_modules/.pnpm/vite@6.4.1_@types+node@22.19.11_jiti@2.6.1_lightningcss@1.30.2_yaml@2.8.2/node_modules/vite/dist/node/module-runner.js
+-var VALID_ID_PREFIX = "/@id/";
+-var NULL_BYTE_PLACEHOLDER = "__x00__";
++// ../../node_modules/.pnpm/vite@8.0.1_@types+node@22.19.11_esbuild@0.27.3_jiti@2.6.1_yaml@2.8.2/node_modules/vite/dist/node/module-runner.js
+ var SOURCEMAPPING_URL = "sourceMa";
+ SOURCEMAPPING_URL += "ppingURL";
+-var ERR_OUTDATED_OPTIMIZED_DEP = "ERR_OUTDATED_OPTIMIZED_DEP";
+ var isWindows = typeof process < "u" && process.platform === "win32";
+ function unwrapId(id) {
+-  return id.startsWith(VALID_ID_PREFIX) ? id.slice(VALID_ID_PREFIX.length).replace(NULL_BYTE_PLACEHOLDER, "\0") : id;
++  return id.startsWith("/@id/") ? id.slice(5).replace("__x00__", "\0") : id;
+ }
+ var windowsSlashRE = /\\/g;
+ function slash(p) {
+@@ -23,18 +20,21 @@ var AsyncFunction = async function() {
+ }.constructor;
+ var asyncFunctionDeclarationPaddingLineCount;
+ function getAsyncFunctionDeclarationPaddingLineCount() {
+-  if (typeof asyncFunctionDeclarationPaddingLineCount > "u") {
+-    const body = "/*code*/", source = new AsyncFunction("a", "b", body).toString();
+-    asyncFunctionDeclarationPaddingLineCount = source.slice(0, source.indexOf(body)).split(`
+-`).length - 1;
++  if (asyncFunctionDeclarationPaddingLineCount === void 0) {
++    let body = "/*code*/", source = new AsyncFunction("a", "b", body).toString();
++    asyncFunctionDeclarationPaddingLineCount = source.slice(0, source.indexOf(body)).split("\n").length - 1;
+   }
+   return asyncFunctionDeclarationPaddingLineCount;
+ }
+ function promiseWithResolvers() {
+   let resolve2, reject;
+-  return { promise: new Promise((_resolve, _reject) => {
+-    resolve2 = _resolve, reject = _reject;
+-  }), resolve: resolve2, reject };
++  return {
++    promise: new Promise((_resolve, _reject) => {
++      resolve2 = _resolve, reject = _reject;
++    }),
++    resolve: resolve2,
++    reject
++  };
+ }
+ var _DRIVE_LETTER_START_RE = /^[A-Za-z]:\//;
+ function normalizeWindowsPath(input = "") {
+@@ -49,7 +49,7 @@ var resolve = function(...arguments_) {
+   arguments_ = arguments_.map((argument) => normalizeWindowsPath(argument));
+   let resolvedPath = "", resolvedAbsolute = false;
+   for (let index = arguments_.length - 1; index >= -1 && !resolvedAbsolute; index--) {
+-    const path = index >= 0 ? arguments_[index] : cwd();
++    let path = index >= 0 ? arguments_[index] : cwd();
+     !path || path.length === 0 || (resolvedPath = `${path}/${resolvedPath}`, resolvedAbsolute = isAbsolute(path));
+   }
+   return resolvedPath = normalizeString(resolvedPath, !resolvedAbsolute), resolvedAbsolute && !isAbsolute(resolvedPath) ? `/${resolvedPath}` : resolvedPath.length > 0 ? resolvedPath : ".";
+@@ -57,18 +57,14 @@ var resolve = function(...arguments_) {
+ function normalizeString(path, allowAboveRoot) {
+   let res = "", lastSegmentLength = 0, lastSlash = -1, dots = 0, char = null;
+   for (let index = 0; index <= path.length; ++index) {
+-    if (index < path.length)
+-      char = path[index];
+-    else {
+-      if (char === "/")
+-        break;
+-      char = "/";
+-    }
++    if (index < path.length) char = path[index];
++    else if (char === "/") break;
++    else char = "/";
+     if (char === "/") {
+       if (!(lastSlash === index - 1 || dots === 1)) if (dots === 2) {
+         if (res.length < 2 || lastSegmentLength !== 2 || res[res.length - 1] !== "." || res[res.length - 2] !== ".") {
+           if (res.length > 2) {
+-            const lastSlashIndex = res.lastIndexOf("/");
++            let lastSlashIndex = res.lastIndexOf("/");
+             lastSlashIndex === -1 ? (res = "", lastSegmentLength = 0) : (res = res.slice(0, lastSlashIndex), lastSegmentLength = res.length - 1 - res.lastIndexOf("/")), lastSlash = index, dots = 0;
+             continue;
+           } else if (res.length > 0) {
+@@ -77,8 +73,7 @@ function normalizeString(path, allowAboveRoot) {
+           }
+         }
+         allowAboveRoot && (res += res.length > 0 ? "/.." : "..", lastSegmentLength = 2);
+-      } else
+-        res.length > 0 ? res += `/${path.slice(lastSlash + 1, index)}` : res = path.slice(lastSlash + 1, index), lastSegmentLength = index - lastSlash - 1;
++      } else res.length > 0 ? res += `/${path.slice(lastSlash + 1, index)}` : res = path.slice(lastSlash + 1, index), lastSegmentLength = index - lastSlash - 1;
+       lastSlash = index, dots = 0;
+     } else char === "." && dots !== -1 ? ++dots : dots = -1;
+   }
+@@ -88,12 +83,10 @@ var isAbsolute = function(p) {
+   return _IS_ABSOLUTE_RE.test(p);
+ };
+ var dirname = function(p) {
+-  const segments = normalizeWindowsPath(p).replace(/\/$/, "").split("/").slice(0, -1);
++  let segments = normalizeWindowsPath(p).replace(/\/$/, "").split("/").slice(0, -1);
+   return segments.length === 1 && _DRIVE_LETTER_RE.test(segments[0]) && (segments[0] += "/"), segments.join("/") || (isAbsolute(p) ? "/" : ".");
+ };
+ var decodeBase64 = typeof atob < "u" ? atob : (str) => Buffer.from(str, "base64").toString("utf-8");
+-var CHAR_FORWARD_SLASH = 47;
+-var CHAR_BACKWARD_SLASH = 92;
+ var percentRegEx = /%/g;
+ var backslashRegEx = /\\/g;
+ var newlineRegEx = /\n/g;
+@@ -102,15 +95,13 @@ var tabRegEx = /\t/g;
+ var questionRegex = /\?/g;
+ var hashRegex = /#/g;
+ function encodePathChars(filepath) {
+-  return filepath.indexOf("%") !== -1 && (filepath = filepath.replace(percentRegEx, "%25")), !isWindows && filepath.indexOf("\\") !== -1 && (filepath = filepath.replace(backslashRegEx, "%5C")), filepath.indexOf(`
+-`) !== -1 && (filepath = filepath.replace(newlineRegEx, "%0A")), filepath.indexOf("\r") !== -1 && (filepath = filepath.replace(carriageReturnRegEx, "%0D")), filepath.indexOf("	") !== -1 && (filepath = filepath.replace(tabRegEx, "%09")), filepath;
++  return filepath.indexOf("%") !== -1 && (filepath = filepath.replace(percentRegEx, "%25")), !isWindows && filepath.indexOf("\\") !== -1 && (filepath = filepath.replace(backslashRegEx, "%5C")), filepath.indexOf("\n") !== -1 && (filepath = filepath.replace(newlineRegEx, "%0A")), filepath.indexOf("\r") !== -1 && (filepath = filepath.replace(carriageReturnRegEx, "%0D")), filepath.indexOf("	") !== -1 && (filepath = filepath.replace(tabRegEx, "%09")), filepath;
+ }
+ var posixDirname = dirname;
+ var posixResolve = resolve;
+ function posixPathToFileHref(posixPath) {
+-  let resolved = posixResolve(posixPath);
+-  const filePathLast = posixPath.charCodeAt(posixPath.length - 1);
+-  return (filePathLast === CHAR_FORWARD_SLASH || isWindows && filePathLast === CHAR_BACKWARD_SLASH) && resolved[resolved.length - 1] !== "/" && (resolved += "/"), resolved = encodePathChars(resolved), resolved.indexOf("?") !== -1 && (resolved = resolved.replace(questionRegex, "%3F")), resolved.indexOf("#") !== -1 && (resolved = resolved.replace(hashRegex, "%23")), new URL(`file://${resolved}`).href;
++  let resolved = posixResolve(posixPath), filePathLast = posixPath.charCodeAt(posixPath.length - 1);
++  return (filePathLast === 47 || isWindows && filePathLast === 92) && resolved[resolved.length - 1] !== "/" && (resolved += "/"), resolved = encodePathChars(resolved), resolved.indexOf("?") !== -1 && (resolved = resolved.replace(questionRegex, "%3F")), resolved.indexOf("#") !== -1 && (resolved = resolved.replace(hashRegex, "%23")), new URL(`file://${resolved}`).href;
+ }
+ function toWindowsPath(path) {
+   return path.replace(/\//g, "\\");
+@@ -120,16 +111,15 @@ var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+ var intToChar = new Uint8Array(64);
+ var charToInt = new Uint8Array(128);
+ for (let i = 0; i < chars.length; i++) {
+-  const c = chars.charCodeAt(i);
++  let c = chars.charCodeAt(i);
+   intToChar[i] = c, charToInt[c] = i;
+ }
+ function decodeInteger(reader, relative) {
+   let value = 0, shift = 0, integer = 0;
+-  do {
+-    const c = reader.next();
+-    integer = charToInt[c], value |= (integer & 31) << shift, shift += 5;
+-  } while (integer & 32);
+-  const shouldNegate = value & 1;
++  do
++    integer = charToInt[reader.next()], value |= (integer & 31) << shift, shift += 5;
++  while (integer & 32);
++  let shouldNegate = value & 1;
+   return value >>>= 1, shouldNegate && (value = -2147483648 | -value), relative + value;
+ }
+ function hasMoreVlq(reader, max) {
+@@ -146,19 +136,28 @@ var StringReader = class {
+     return this.buffer.charCodeAt(this.pos);
+   }
+   indexOf(char) {
+-    const { buffer, pos } = this, idx = buffer.indexOf(char, pos);
++    let { buffer, pos } = this, idx = buffer.indexOf(char, pos);
+     return idx === -1 ? buffer.length : idx;
+   }
+ };
+ function decode(mappings) {
+-  const { length } = mappings, reader = new StringReader(mappings), decoded = [];
+-  let genColumn = 0, sourcesIndex = 0, sourceLine = 0, sourceColumn = 0, namesIndex = 0;
++  let { length } = mappings, reader = new StringReader(mappings), decoded = [], genColumn = 0, sourcesIndex = 0, sourceLine = 0, sourceColumn = 0, namesIndex = 0;
+   do {
+-    const semi = reader.indexOf(";"), line = [];
+-    let sorted = true, lastCol = 0;
++    let semi = reader.indexOf(";"), line = [], sorted = true, lastCol = 0;
+     for (genColumn = 0; reader.pos < semi; ) {
+       let seg;
+-      genColumn = decodeInteger(reader, genColumn), genColumn < lastCol && (sorted = false), lastCol = genColumn, hasMoreVlq(reader, semi) ? (sourcesIndex = decodeInteger(reader, sourcesIndex), sourceLine = decodeInteger(reader, sourceLine), sourceColumn = decodeInteger(reader, sourceColumn), hasMoreVlq(reader, semi) ? (namesIndex = decodeInteger(reader, namesIndex), seg = [genColumn, sourcesIndex, sourceLine, sourceColumn, namesIndex]) : seg = [genColumn, sourcesIndex, sourceLine, sourceColumn]) : seg = [genColumn], line.push(seg), reader.pos++;
++      genColumn = decodeInteger(reader, genColumn), genColumn < lastCol && (sorted = false), lastCol = genColumn, hasMoreVlq(reader, semi) ? (sourcesIndex = decodeInteger(reader, sourcesIndex), sourceLine = decodeInteger(reader, sourceLine), sourceColumn = decodeInteger(reader, sourceColumn), hasMoreVlq(reader, semi) ? (namesIndex = decodeInteger(reader, namesIndex), seg = [
++        genColumn,
++        sourcesIndex,
++        sourceLine,
++        sourceColumn,
++        namesIndex
++      ]) : seg = [
++        genColumn,
++        sourcesIndex,
++        sourceLine,
++        sourceColumn
++      ]) : seg = [genColumn], line.push(seg), reader.pos++;
+     }
+     sorted || sort(line), decoded.push(line), reader.pos = semi + 1;
+   } while (reader.pos <= length);
+@@ -178,81 +177,78 @@ var NAMES_INDEX = 4;
+ var found = false;
+ function binarySearch(haystack, needle, low, high) {
+   for (; low <= high; ) {
+-    const mid = low + (high - low >> 1), cmp = haystack[mid][COLUMN] - needle;
+-    if (cmp === 0)
+-      return found = true, mid;
++    let mid = low + (high - low >> 1), cmp = haystack[mid][COLUMN] - needle;
++    if (cmp === 0) return found = true, mid;
+     cmp < 0 ? low = mid + 1 : high = mid - 1;
+   }
+   return found = false, low - 1;
+ }
+ function upperBound(haystack, needle, index) {
+-  for (let i = index + 1; i < haystack.length && haystack[i][COLUMN] === needle; index = i++)
+-    ;
++  for (let i = index + 1; i < haystack.length && haystack[i][COLUMN] === needle; index = i++) ;
+   return index;
+ }
+ function lowerBound(haystack, needle, index) {
+-  for (let i = index - 1; i >= 0 && haystack[i][COLUMN] === needle; index = i--)
+-    ;
++  for (let i = index - 1; i >= 0 && haystack[i][COLUMN] === needle; index = i--) ;
+   return index;
+ }
+ function memoizedBinarySearch(haystack, needle, state, key) {
+-  const { lastKey, lastNeedle, lastIndex } = state;
+-  let low = 0, high = haystack.length - 1;
++  let { lastKey, lastNeedle, lastIndex } = state, low = 0, high = haystack.length - 1;
+   if (key === lastKey) {
+-    if (needle === lastNeedle)
+-      return found = lastIndex !== -1 && haystack[lastIndex][COLUMN] === needle, lastIndex;
++    if (needle === lastNeedle) return found = lastIndex !== -1 && haystack[lastIndex][COLUMN] === needle, lastIndex;
+     needle >= lastNeedle ? low = lastIndex === -1 ? 0 : lastIndex : high = lastIndex;
+   }
+   return state.lastKey = key, state.lastNeedle = needle, state.lastIndex = binarySearch(haystack, needle, low, high);
+ }
+ var LINE_GTR_ZERO = "`line` must be greater than 0 (lines start at line 1)";
+ var COL_GTR_EQ_ZERO = "`column` must be greater than or equal to 0 (columns start at column 0)";
+-var LEAST_UPPER_BOUND = -1;
+-var GREATEST_LOWER_BOUND = 1;
++function cast(map) {
++  return map;
++}
+ function decodedMappings(map) {
+   var _a;
+-  return (_a = map)._decoded || (_a._decoded = decode(map._encoded));
++  return (_a = cast(map))._decoded || (_a._decoded = decode(cast(map)._encoded));
+ }
+ function originalPositionFor(map, needle) {
+   let { line, column, bias } = needle;
+-  if (line--, line < 0)
+-    throw new Error(LINE_GTR_ZERO);
+-  if (column < 0)
+-    throw new Error(COL_GTR_EQ_ZERO);
+-  const decoded = decodedMappings(map);
+-  if (line >= decoded.length)
+-    return OMapping(null, null, null, null);
+-  const segments = decoded[line], index = traceSegmentInternal(segments, map._decodedMemo, line, column, bias || GREATEST_LOWER_BOUND);
+-  if (index === -1)
+-    return OMapping(null, null, null, null);
+-  const segment = segments[index];
+-  if (segment.length === 1)
+-    return OMapping(null, null, null, null);
+-  const { names, resolvedSources } = map;
++  if (line--, line < 0) throw Error(LINE_GTR_ZERO);
++  if (column < 0) throw Error(COL_GTR_EQ_ZERO);
++  let decoded = decodedMappings(map);
++  if (line >= decoded.length) return OMapping(null, null, null, null);
++  let segments = decoded[line], index = traceSegmentInternal(segments, cast(map)._decodedMemo, line, column, bias || 1);
++  if (index === -1) return OMapping(null, null, null, null);
++  let segment = segments[index];
++  if (segment.length === 1) return OMapping(null, null, null, null);
++  let { names, resolvedSources } = map;
+   return OMapping(resolvedSources[segment[SOURCES_INDEX]], segment[SOURCE_LINE] + 1, segment[SOURCE_COLUMN], segment.length === 5 ? names[segment[NAMES_INDEX]] : null);
+ }
+ function OMapping(source, line, column, name) {
+-  return { source, line, column, name };
++  return {
++    source,
++    line,
++    column,
++    name
++  };
+ }
+ function traceSegmentInternal(segments, memo, line, column, bias) {
+   let index = memoizedBinarySearch(segments, column, memo, line);
+-  return found ? index = (bias === LEAST_UPPER_BOUND ? upperBound : lowerBound)(segments, column, index) : bias === LEAST_UPPER_BOUND && index++, index === -1 || index === segments.length ? -1 : index;
++  return found ? index = (bias === -1 ? upperBound : lowerBound)(segments, column, index) : bias === -1 && index++, index === -1 || index === segments.length ? -1 : index;
+ }
+ var DecodedMap = class {
+-  constructor(map, from) {
+-    this.map = map;
+-    const { mappings, names, sources } = map;
+-    this.version = map.version, this.names = names || [], this._encoded = mappings || "", this._decodedMemo = memoizedState(), this.url = from, this.resolvedSources = (sources || []).map(
+-      (s) => posixResolve(s || "", from)
+-    );
+-  }
+   _encoded;
+   _decoded;
+   _decodedMemo;
+   url;
++  file;
+   version;
+   names = [];
+   resolvedSources;
++  constructor(map, from) {
++    this.map = map;
++    let { mappings, names, sources } = map;
++    this.version = map.version, this.names = names || [], this._encoded = mappings || "", this._decodedMemo = memoizedState(), this.url = from, this.file = from;
++    let originDir = posixDirname(from);
++    this.resolvedSources = (sources || []).map((s) => posixResolve(originDir, s || ""));
++  }
+ };
+ function memoizedState() {
+   return {
+@@ -262,16 +258,11 @@ function memoizedState() {
+   };
+ }
+ function getOriginalPosition(map, needle) {
+-  const result = originalPositionFor(map, needle);
++  let result = originalPositionFor(map, needle);
+   return result.column == null ? null : result;
+ }
+-var MODULE_RUNNER_SOURCEMAPPING_REGEXP = new RegExp(
+-  `//# ${SOURCEMAPPING_URL}=data:application/json;base64,(.+)`
+-);
++var MODULE_RUNNER_SOURCEMAPPING_REGEXP = RegExp(`//# ${SOURCEMAPPING_URL}=data:application/json;base64,(.+)`);
+ var EvaluatedModuleNode = class {
+-  constructor(id, url) {
+-    this.id = id, this.url = url, this.file = cleanUrl(id);
+-  }
+   importers = /* @__PURE__ */ new Set();
+   imports = /* @__PURE__ */ new Set();
+   evaluated = false;
+@@ -280,71 +271,74 @@ var EvaluatedModuleNode = class {
+   exports;
+   file;
+   map;
++  constructor(id, url) {
++    this.id = id, this.url = url, this.file = cleanUrl(id);
++  }
+ };
+ var EvaluatedModules = class {
+   idToModuleMap = /* @__PURE__ */ new Map();
+   fileToModulesMap = /* @__PURE__ */ new Map();
+   urlToIdModuleMap = /* @__PURE__ */ new Map();
+   /**
+-   * Returns the module node by the resolved module ID. Usually, module ID is
+-   * the file system path with query and/or hash. It can also be a virtual module.
+-   *
+-   * Module runner graph will have 1 to 1 mapping with the server module graph.
+-   * @param id Resolved module ID
+-   */
++  * Returns the module node by the resolved module ID. Usually, module ID is
++  * the file system path with query and/or hash. It can also be a virtual module.
++  *
++  * Module runner graph will have 1 to 1 mapping with the server module graph.
++  * @param id Resolved module ID
++  */
+   getModuleById(id) {
+     return this.idToModuleMap.get(id);
+   }
+   /**
+-   * Returns all modules related to the file system path. Different modules
+-   * might have different query parameters or hash, so it's possible to have
+-   * multiple modules for the same file.
+-   * @param file The file system path of the module
+-   */
++  * Returns all modules related to the file system path. Different modules
++  * might have different query parameters or hash, so it's possible to have
++  * multiple modules for the same file.
++  * @param file The file system path of the module
++  */
+   getModulesByFile(file) {
+     return this.fileToModulesMap.get(file);
+   }
+   /**
+-   * Returns the module node by the URL that was used in the import statement.
+-   * Unlike module graph on the server, the URL is not resolved and is used as is.
+-   * @param url Server URL that was used in the import statement
+-   */
++  * Returns the module node by the URL that was used in the import statement.
++  * Unlike module graph on the server, the URL is not resolved and is used as is.
++  * @param url Server URL that was used in the import statement
++  */
+   getModuleByUrl(url) {
+     return this.urlToIdModuleMap.get(unwrapId(url));
+   }
+   /**
+-   * Ensure that module is in the graph. If the module is already in the graph,
+-   * it will return the existing module node. Otherwise, it will create a new
+-   * module node and add it to the graph.
+-   * @param id Resolved module ID
+-   * @param url URL that was used in the import statement
+-   */
++  * Ensure that module is in the graph. If the module is already in the graph,
++  * it will return the existing module node. Otherwise, it will create a new
++  * module node and add it to the graph.
++  * @param id Resolved module ID
++  * @param url URL that was used in the import statement
++  */
+   ensureModule(id, url) {
+     if (id = normalizeModuleId(id), this.idToModuleMap.has(id)) {
+-      const moduleNode2 = this.idToModuleMap.get(id);
++      let moduleNode2 = this.idToModuleMap.get(id);
+       return this.urlToIdModuleMap.set(url, moduleNode2), moduleNode2;
+     }
+-    const moduleNode = new EvaluatedModuleNode(id, url);
++    let moduleNode = new EvaluatedModuleNode(id, url);
+     this.idToModuleMap.set(id, moduleNode), this.urlToIdModuleMap.set(url, moduleNode);
+-    const fileModules = this.fileToModulesMap.get(moduleNode.file) || /* @__PURE__ */ new Set();
++    let fileModules = this.fileToModulesMap.get(moduleNode.file) || /* @__PURE__ */ new Set();
+     return fileModules.add(moduleNode), this.fileToModulesMap.set(moduleNode.file, fileModules), moduleNode;
+   }
+   invalidateModule(node) {
+     node.evaluated = false, node.meta = void 0, node.map = void 0, node.promise = void 0, node.exports = void 0, node.imports.clear();
+   }
+   /**
+-   * Extracts the inlined source map from the module code and returns the decoded
+-   * source map. If the source map is not inlined, it will return null.
+-   * @param id Resolved module ID
+-   */
++  * Extracts the inlined source map from the module code and returns the decoded
++  * source map. If the source map is not inlined, it will return null.
++  * @param id Resolved module ID
++  */
+   getModuleSourceMapById(id) {
+-    const mod = this.getModuleById(id);
++    let mod = this.getModuleById(id);
+     if (!mod) return null;
+     if (mod.map) return mod.map;
+     if (!mod.meta || !("code" in mod.meta)) return null;
+-    const mapString = MODULE_RUNNER_SOURCEMAPPING_REGEXP.exec(
+-      mod.meta.code
+-    )?.[1];
++    let pattern = `//# ${SOURCEMAPPING_URL}=data:application/json;base64,`, lastIndex = mod.meta.code.lastIndexOf(pattern);
++    if (lastIndex === -1) return null;
++    let mapString = MODULE_RUNNER_SOURCEMAPPING_REGEXP.exec(mod.meta.code.slice(lastIndex))?.[1];
+     return mapString ? (mod.map = new DecodedMap(JSON.parse(decodeBase64(mapString)), mod.file), mod.map) : null;
+   }
+   clear() {
+@@ -358,40 +352,30 @@ var prefixedBuiltins = /* @__PURE__ */ new Set([
+   "node:test/reporters"
+ ]);
+ function normalizeModuleId(file) {
+-  return prefixedBuiltins.has(file) ? file : slash(file).replace(/^\/@fs\//, isWindows ? "" : "/").replace(/^node:/, "").replace(/^\/+/, "/").replace(/^file:\//, "/");
++  return prefixedBuiltins.has(file) ? file : slash(file).replace(/^\/@fs\//, isWindows ? "" : "/").replace(/^node:/, "").replace(/^\/+/, "/").replace(/^file:\/+/, isWindows ? "" : "/");
+ }
+ var HMRContext = class {
++  newListeners;
+   constructor(hmrClient, ownerPath) {
+     this.hmrClient = hmrClient, this.ownerPath = ownerPath, hmrClient.dataMap.has(ownerPath) || hmrClient.dataMap.set(ownerPath, {});
+-    const mod = hmrClient.hotModulesMap.get(ownerPath);
++    let mod = hmrClient.hotModulesMap.get(ownerPath);
+     mod && (mod.callbacks = []);
+-    const staleListeners = hmrClient.ctxToListenersMap.get(ownerPath);
+-    if (staleListeners)
+-      for (const [event, staleFns] of staleListeners) {
+-        const listeners = hmrClient.customListenersMap.get(event);
+-        listeners && hmrClient.customListenersMap.set(
+-          event,
+-          listeners.filter((l) => !staleFns.includes(l))
+-        );
+-      }
++    let staleListeners = hmrClient.ctxToListenersMap.get(ownerPath);
++    if (staleListeners) for (let [event, staleFns] of staleListeners) {
++      let listeners = hmrClient.customListenersMap.get(event);
++      listeners && hmrClient.customListenersMap.set(event, listeners.filter((l) => !staleFns.includes(l)));
++    }
+     this.newListeners = /* @__PURE__ */ new Map(), hmrClient.ctxToListenersMap.set(ownerPath, this.newListeners);
+   }
+-  newListeners;
+   get data() {
+     return this.hmrClient.dataMap.get(this.ownerPath);
+   }
+   accept(deps, callback) {
+-    if (typeof deps == "function" || !deps)
+-      this.acceptDeps([this.ownerPath], ([mod]) => deps?.(mod));
+-    else if (typeof deps == "string")
+-      this.acceptDeps([deps], ([mod]) => callback?.(mod));
+-    else if (Array.isArray(deps))
+-      this.acceptDeps(deps, callback);
+-    else
+-      throw new Error("invalid hot.accept() usage.");
+-  }
+-  // export names (first arg) are irrelevant on the client side, they're
+-  // extracted in the server for propagation
++    if (typeof deps == "function" || !deps) this.acceptDeps([this.ownerPath], ([mod]) => deps?.(mod));
++    else if (typeof deps == "string") this.acceptDeps([deps], ([mod]) => callback?.(mod));
++    else if (Array.isArray(deps)) this.acceptDeps(deps, callback);
++    else throw Error("invalid hot.accept() usage.");
++  }
+   acceptExports(_, callback) {
+     this.acceptDeps([this.ownerPath], ([mod]) => callback?.(mod));
+   }
+@@ -401,12 +385,10 @@ var HMRContext = class {
+   prune(cb) {
+     this.hmrClient.pruneMap.set(this.ownerPath, cb);
+   }
+-  // Kept for backward compatibility (#11036)
+-  // eslint-disable-next-line @typescript-eslint/no-empty-function
+   decline() {
+   }
+   invalidate(message) {
+-    const firstInvalidatedBy = this.hmrClient.currentFirstInvalidatedBy ?? this.ownerPath;
++    let firstInvalidatedBy = this.hmrClient.currentFirstInvalidatedBy ?? this.ownerPath;
+     this.hmrClient.notifyListeners("vite:invalidate", {
+       path: this.ownerPath,
+       message,
+@@ -415,23 +397,20 @@ var HMRContext = class {
+       path: this.ownerPath,
+       message,
+       firstInvalidatedBy
+-    }), this.hmrClient.logger.debug(
+-      `invalidate ${this.ownerPath}${message ? `: ${message}` : ""}`
+-    );
++    }), this.hmrClient.logger.debug(`invalidate ${this.ownerPath}${message ? `: ${message}` : ""}`);
+   }
+   on(event, cb) {
+-    const addToMap = (map) => {
+-      const existing = map.get(event) || [];
++    let addToMap = (map) => {
++      let existing = map.get(event) || [];
+       existing.push(cb), map.set(event, existing);
+     };
+     addToMap(this.hmrClient.customListenersMap), addToMap(this.newListeners);
+   }
+   off(event, cb) {
+-    const removeFromMap = (map) => {
+-      const existing = map.get(event);
+-      if (existing === void 0)
+-        return;
+-      const pruned = existing.filter((l) => l !== cb);
++    let removeFromMap = (map) => {
++      let existing = map.get(event);
++      if (existing === void 0) return;
++      let pruned = existing.filter((l) => l !== cb);
+       if (pruned.length === 0) {
+         map.delete(event);
+         return;
+@@ -441,11 +420,15 @@ var HMRContext = class {
+     removeFromMap(this.hmrClient.customListenersMap), removeFromMap(this.newListeners);
+   }
+   send(event, data) {
+-    this.hmrClient.send({ type: "custom", event, data });
++    this.hmrClient.send({
++      type: "custom",
++      event,
++      data
++    });
+   }
+   acceptDeps(deps, callback = () => {
+   }) {
+-    const mod = this.hmrClient.hotModulesMap.get(this.ownerPath) || {
++    let mod = this.hmrClient.hotModulesMap.get(this.ownerPath) || {
+       id: this.ownerPath,
+       callbacks: []
+     };
+@@ -456,9 +439,6 @@ var HMRContext = class {
+   }
+ };
+ var HMRClient = class {
+-  constructor(logger, transport, importUpdatedModule) {
+-    this.logger = logger, this.transport = transport, this.importUpdatedModule = importUpdatedModule;
+-  }
+   hotModulesMap = /* @__PURE__ */ new Map();
+   disposeMap = /* @__PURE__ */ new Map();
+   pruneMap = /* @__PURE__ */ new Map();
+@@ -466,8 +446,11 @@ var HMRClient = class {
+   customListenersMap = /* @__PURE__ */ new Map();
+   ctxToListenersMap = /* @__PURE__ */ new Map();
+   currentFirstInvalidatedBy;
++  constructor(logger, transport, importUpdatedModule) {
++    this.logger = logger, this.transport = transport, this.importUpdatedModule = importUpdatedModule;
++  }
+   async notifyListeners(event, data) {
+-    const cbs = this.customListenersMap.get(event);
++    let cbs = this.customListenersMap.get(event);
+     cbs && await Promise.allSettled(cbs.map((cb) => cb(data)));
+   }
+   send(payload) {
+@@ -478,49 +461,38 @@ var HMRClient = class {
+   clear() {
+     this.hotModulesMap.clear(), this.disposeMap.clear(), this.pruneMap.clear(), this.dataMap.clear(), this.customListenersMap.clear(), this.ctxToListenersMap.clear();
+   }
+-  // After an HMR update, some modules are no longer imported on the page
+-  // but they may have left behind side effects that need to be cleaned up
+-  // (e.g. style injections)
+   async prunePaths(paths) {
+-    await Promise.all(
+-      paths.map((path) => {
+-        const disposer = this.disposeMap.get(path);
+-        if (disposer) return disposer(this.dataMap.get(path));
+-      })
+-    ), paths.forEach((path) => {
+-      const fn = this.pruneMap.get(path);
+-      fn && fn(this.dataMap.get(path));
+-    });
++    await Promise.all(paths.map((path) => {
++      let disposer = this.disposeMap.get(path);
++      if (disposer) return disposer(this.dataMap.get(path));
++    })), await Promise.all(paths.map((path) => {
++      let fn = this.pruneMap.get(path);
++      if (fn) return fn(this.dataMap.get(path));
++    }));
+   }
+   warnFailedUpdate(err, path) {
+-    (!(err instanceof Error) || !err.message.includes("fetch")) && this.logger.error(err), this.logger.error(
+-      `Failed to reload ${path}. This could be due to syntax errors or importing non-existent modules. (see errors above)`
+-    );
++    (!(err instanceof Error) || !err.message.includes("fetch")) && this.logger.error(err), this.logger.error(`Failed to reload ${path}. This could be due to syntax errors or importing non-existent modules. (see errors above)`);
+   }
+   updateQueue = [];
+   pendingUpdateQueue = false;
+   /**
+-   * buffer multiple hot updates triggered by the same src change
+-   * so that they are invoked in the same order they were sent.
+-   * (otherwise the order may be inconsistent because of the http request round trip)
+-   */
++  * buffer multiple hot updates triggered by the same src change
++  * so that they are invoked in the same order they were sent.
++  * (otherwise the order may be inconsistent because of the http request round trip)
++  */
+   async queueUpdate(payload) {
+     if (this.updateQueue.push(this.fetchUpdate(payload)), !this.pendingUpdateQueue) {
+       this.pendingUpdateQueue = true, await Promise.resolve(), this.pendingUpdateQueue = false;
+-      const loading = [...this.updateQueue];
++      let loading = [...this.updateQueue];
+       this.updateQueue = [], (await Promise.all(loading)).forEach((fn) => fn && fn());
+     }
+   }
+   async fetchUpdate(update) {
+-    const { path, acceptedPath, firstInvalidatedBy } = update, mod = this.hotModulesMap.get(path);
+-    if (!mod)
+-      return;
+-    let fetchedModule;
+-    const isSelfUpdate = path === acceptedPath, qualifiedCallbacks = mod.callbacks.filter(
+-      ({ deps }) => deps.includes(acceptedPath)
+-    );
++    let { path, acceptedPath, firstInvalidatedBy } = update, mod = this.hotModulesMap.get(path);
++    if (!mod) return;
++    let fetchedModule, isSelfUpdate = path === acceptedPath, qualifiedCallbacks = mod.callbacks.filter(({ deps }) => deps.includes(acceptedPath));
+     if (isSelfUpdate || qualifiedCallbacks.length > 0) {
+-      const disposer = this.disposeMap.get(acceptedPath);
++      let disposer = this.disposeMap.get(acceptedPath);
+       disposer && await disposer(this.dataMap.get(acceptedPath));
+       try {
+         fetchedModule = await this.importUpdatedModule(update);
+@@ -531,13 +503,8 @@ var HMRClient = class {
+     return () => {
+       try {
+         this.currentFirstInvalidatedBy = firstInvalidatedBy;
+-        for (const { deps, fn } of qualifiedCallbacks)
+-          fn(
+-            deps.map(
+-              (dep) => dep === acceptedPath ? fetchedModule : void 0
+-            )
+-          );
+-        const loggedPath = isSelfUpdate ? path : `${acceptedPath} via ${path}`;
++        for (let { deps, fn } of qualifiedCallbacks) fn(deps.map((dep) => dep === acceptedPath ? fetchedModule : void 0));
++        let loggedPath = isSelfUpdate ? path : `${acceptedPath} via ${path}`;
+         this.logger.debug(`hot updated: ${loggedPath}`);
+       } finally {
+         this.currentFirstInvalidatedBy = void 0;
+@@ -547,12 +514,10 @@ var HMRClient = class {
+ };
+ function analyzeImportedModDifference(mod, rawId, moduleType, metadata) {
+   if (!metadata?.isDynamicImport && metadata?.importedNames?.length) {
+-    const missingBindings = metadata.importedNames.filter((s) => !(s in mod));
++    let missingBindings = metadata.importedNames.filter((s) => !(s in mod));
+     if (missingBindings.length) {
+-      const lastBinding = missingBindings[missingBindings.length - 1];
+-      throw moduleType === "module" ? new SyntaxError(
+-        `[vite] The requested module '${rawId}' does not provide an export named '${lastBinding}'`
+-      ) : new SyntaxError(`[vite] Named export '${lastBinding}' not found. The requested module '${rawId}' is a CommonJS module, which may not support all module.exports as named exports.
++      let lastBinding = missingBindings[missingBindings.length - 1];
++      throw SyntaxError(moduleType === "module" ? `[vite] The requested module '${rawId}' does not provide an export named '${lastBinding}'` : `[vite] Named export '${lastBinding}' not found. The requested module '${rawId}' is a CommonJS module, which may not support all module.exports as named exports.
+ CommonJS modules can always be imported via the default export, for example using:
+ 
+ import pkg from '${rawId}';
+@@ -561,57 +526,46 @@ const {${missingBindings.join(", ")}} = pkg;
+     }
+   }
+ }
+-var urlAlphabet = "useandom-26T198340PX75pxJACKVERYMINDBUSHWOLF_GQZbfghjklqvwyzrict";
+ var nanoid = (size = 21) => {
+   let id = "", i = size | 0;
+-  for (; i--; )
+-    id += urlAlphabet[Math.random() * 64 | 0];
++  for (; i--; ) id += "useandom-26T198340PX75pxJACKVERYMINDBUSHWOLF_GQZbfghjklqvwyzrict"[Math.random() * 64 | 0];
+   return id;
+ };
+ function reviveInvokeError(e) {
+-  const error = new Error(e.message || "Unknown invoke error");
+-  return Object.assign(error, e, {
+-    // pass the whole error instead of just the stacktrace
+-    // so that it gets formatted nicely with console.log
+-    runnerError: new Error("RunnerError")
+-  }), error;
++  let error = Error(e.message || "Unknown invoke error");
++  return Object.assign(error, e, { runnerError: /* @__PURE__ */ Error("RunnerError") }), error;
+ }
+ var createInvokeableTransport = (transport) => {
+-  if (transport.invoke)
+-    return {
+-      ...transport,
+-      async invoke(name, data) {
+-        const result = await transport.invoke({
+-          type: "custom",
+-          event: "vite:invoke",
+-          data: {
+-            id: "send",
+-            name,
+-            data
+-          }
+-        });
+-        if ("error" in result)
+-          throw reviveInvokeError(result.error);
+-        return result.result;
+-      }
+-    };
+-  if (!transport.send || !transport.connect)
+-    throw new Error(
+-      "transport must implement send and connect when invoke is not implemented"
+-    );
+-  const rpcPromises = /* @__PURE__ */ new Map();
++  if (transport.invoke) return {
++    ...transport,
++    async invoke(name, data) {
++      let result = await transport.invoke({
++        type: "custom",
++        event: "vite:invoke",
++        data: {
++          id: "send",
++          name,
++          data
++        }
++      });
++      if ("error" in result) throw reviveInvokeError(result.error);
++      return result.result;
++    }
++  };
++  if (!transport.send || !transport.connect) throw Error("transport must implement send and connect when invoke is not implemented");
++  let rpcPromises = /* @__PURE__ */ new Map();
+   return {
+     ...transport,
+     connect({ onMessage, onDisconnection }) {
+       return transport.connect({
+         onMessage(payload) {
+           if (payload.type === "custom" && payload.event === "vite:invoke") {
+-            const data = payload.data;
++            let data = payload.data;
+             if (data.id.startsWith("response:")) {
+-              const invokeId = data.id.slice(9), promise = rpcPromises.get(invokeId);
++              let invokeId = data.id.slice(9), promise = rpcPromises.get(invokeId);
+               if (!promise) return;
+               promise.timeoutId && clearTimeout(promise.timeoutId), rpcPromises.delete(invokeId);
+-              const { error, result } = data.data;
++              let { error, result } = data.data;
+               error ? promise.reject(error) : promise.resolve(result);
+               return;
+             }
+@@ -623,18 +577,14 @@ var createInvokeableTransport = (transport) => {
+     },
+     disconnect() {
+       return rpcPromises.forEach((promise) => {
+-        promise.reject(
+-          new Error(
+-            `transport was disconnected, cannot call ${JSON.stringify(promise.name)}`
+-          )
+-        );
++        promise.reject(/* @__PURE__ */ Error(`transport was disconnected, cannot call ${JSON.stringify(promise.name)}`));
+       }), rpcPromises.clear(), transport.disconnect?.();
+     },
+     send(data) {
+       return transport.send(data);
+     },
+     async invoke(name, data) {
+-      const promiseId = nanoid(), wrappedData = {
++      let promiseId = nanoid(), wrappedData = {
+         type: "custom",
+         event: "vite:invoke",
+         data: {
+@@ -642,15 +592,15 @@ var createInvokeableTransport = (transport) => {
+           id: `send:${promiseId}`,
+           data
+         }
+-      }, sendPromise = transport.send(wrappedData), { promise, resolve: resolve2, reject } = promiseWithResolvers(), timeout = transport.timeout ?? 6e4;
+-      let timeoutId;
++      }, sendPromise = transport.send(wrappedData), { promise, resolve: resolve2, reject } = promiseWithResolvers(), timeout = transport.timeout ?? 6e4, timeoutId;
+       timeout > 0 && (timeoutId = setTimeout(() => {
+-        rpcPromises.delete(promiseId), reject(
+-          new Error(
+-            `transport invoke timed out after ${timeout}ms (data: ${JSON.stringify(wrappedData)})`
+-          )
+-        );
+-      }, timeout), timeoutId?.unref?.()), rpcPromises.set(promiseId, { resolve: resolve2, reject, name, timeoutId }), sendPromise && sendPromise.catch((err) => {
++        rpcPromises.delete(promiseId), reject(/* @__PURE__ */ Error(`transport invoke timed out after ${timeout}ms (data: ${JSON.stringify(wrappedData)})`));
++      }, timeout), timeoutId?.unref?.()), rpcPromises.set(promiseId, {
++        resolve: resolve2,
++        reject,
++        name,
++        timeoutId
++      }), sendPromise && sendPromise.catch((err) => {
+         clearTimeout(timeoutId), rpcPromises.delete(promiseId), reject(err);
+       });
+       try {
+@@ -662,56 +612,50 @@ var createInvokeableTransport = (transport) => {
+   };
+ };
+ var normalizeModuleRunnerTransport = (transport) => {
+-  const invokeableTransport = createInvokeableTransport(transport);
+-  let isConnected = !invokeableTransport.connect, connectingPromise;
++  let invokeableTransport = createInvokeableTransport(transport), isConnected = !invokeableTransport.connect, connectingPromise;
+   return {
+     ...transport,
+-    ...invokeableTransport.connect ? {
+-      async connect(onMessage) {
+-        if (isConnected) return;
+-        if (connectingPromise) {
+-          await connectingPromise;
+-          return;
+-        }
+-        const maybePromise = invokeableTransport.connect({
+-          onMessage: onMessage ?? (() => {
+-          }),
+-          onDisconnection() {
+-            isConnected = false;
+-          }
+-        });
+-        maybePromise && (connectingPromise = maybePromise, await connectingPromise, connectingPromise = void 0), isConnected = true;
+-      }
+-    } : {},
+-    ...invokeableTransport.disconnect ? {
+-      async disconnect() {
+-        isConnected && (connectingPromise && await connectingPromise, isConnected = false, await invokeableTransport.disconnect());
++    ...invokeableTransport.connect ? { async connect(onMessage) {
++      if (isConnected) return;
++      if (connectingPromise) {
++        await connectingPromise;
++        return;
+       }
+-    } : {},
++      let maybePromise = invokeableTransport.connect({
++        onMessage: onMessage ?? (() => {
++        }),
++        onDisconnection() {
++          isConnected = false;
++        }
++      });
++      maybePromise && (connectingPromise = maybePromise, await connectingPromise, connectingPromise = void 0), isConnected = true;
++    } } : {},
++    ...invokeableTransport.disconnect ? { async disconnect() {
++      isConnected && (connectingPromise && await connectingPromise, isConnected = false, await invokeableTransport.disconnect());
++    } } : {},
+     async send(data) {
+       if (invokeableTransport.send) {
+-        if (!isConnected)
+-          if (connectingPromise)
+-            await connectingPromise;
+-          else
+-            throw new Error("send was called before connect");
++        if (!isConnected) if (connectingPromise) await connectingPromise;
++        else throw Error("send was called before connect");
+         await invokeableTransport.send(data);
+       }
+     },
+     async invoke(name, data) {
+-      if (!isConnected)
+-        if (connectingPromise)
+-          await connectingPromise;
+-        else
+-          throw new Error("invoke was called before connect");
++      if (!isConnected) if (connectingPromise) await connectingPromise;
++      else throw Error("invoke was called before connect");
+       return invokeableTransport.invoke(name, data);
+     }
+   };
+ };
++function createIsBuiltin(builtins) {
++  let plainBuiltinsSet = new Set(builtins.filter((builtin) => typeof builtin == "string")), regexBuiltins = builtins.filter((builtin) => typeof builtin != "string");
++  return (id) => plainBuiltinsSet.has(id) || regexBuiltins.some((regexp) => regexp.test(id));
++}
+ var ssrModuleExportsKey = "__vite_ssr_exports__";
+ var ssrImportKey = "__vite_ssr_import__";
+ var ssrDynamicImportKey = "__vite_ssr_dynamic_import__";
+ var ssrExportAllKey = "__vite_ssr_exportAll__";
++var ssrExportNameKey = "__vite_ssr_exportName__";
+ var ssrImportMetaKey = "__vite_ssr_import_meta__";
+ var noop = () => {
+ };
+@@ -724,7 +668,7 @@ var hmrLogger = {
+   error: (error) => console.log("[vite]", error)
+ };
+ function createHMRHandler(handler) {
+-  const queue = new Queue();
++  let queue = new Queue();
+   return (payload) => queue.enqueue(() => handler(payload));
+ }
+ var Queue = class {
+@@ -740,9 +684,8 @@ var Queue = class {
+     });
+   }
+   dequeue() {
+-    if (this.pending)
+-      return false;
+-    const item = this.queue.shift();
++    if (this.pending) return false;
++    let item = this.queue.shift();
+     return item ? (this.pending = true, item.promise().then(item.resolve).catch(item.reject).finally(() => {
+       this.pending = false, this.dequeue();
+     }), true) : false;
+@@ -750,87 +693,72 @@ var Queue = class {
+ };
+ function createHMRHandlerForRunner(runner) {
+   return createHMRHandler(async (payload) => {
+-    const hmrClient = runner.hmrClient;
+-    if (!(!hmrClient || runner.isClosed()))
+-      switch (payload.type) {
+-        case "connected":
+-          hmrClient.logger.debug("connected.");
+-          break;
+-        case "update":
+-          await hmrClient.notifyListeners("vite:beforeUpdate", payload), await Promise.all(
+-            payload.updates.map(async (update) => {
+-              if (update.type === "js-update")
+-                return update.acceptedPath = unwrapId(update.acceptedPath), update.path = unwrapId(update.path), hmrClient.queueUpdate(update);
+-              hmrClient.logger.error("css hmr is not supported in runner mode.");
+-            })
+-          ), await hmrClient.notifyListeners("vite:afterUpdate", payload);
+-          break;
+-        case "custom": {
+-          await hmrClient.notifyListeners(payload.event, payload.data);
+-          break;
+-        }
+-        case "full-reload": {
+-          const { triggeredBy } = payload, clearEntrypointUrls = triggeredBy ? getModulesEntrypoints(
+-            runner,
+-            getModulesByFile(runner, slash(triggeredBy))
+-          ) : findAllEntrypoints(runner);
+-          if (!clearEntrypointUrls.size) break;
+-          hmrClient.logger.debug("program reload"), await hmrClient.notifyListeners("vite:beforeFullReload", payload), runner.evaluatedModules.clear();
+-          for (const url of clearEntrypointUrls)
+-            try {
+-              await runner.import(url);
+-            } catch (err) {
+-              err.code !== ERR_OUTDATED_OPTIMIZED_DEP && hmrClient.logger.error(
+-                `An error happened during full reload
++    let hmrClient = runner.hmrClient;
++    if (!(!hmrClient || runner.isClosed())) switch (payload.type) {
++      case "connected":
++        hmrClient.logger.debug("connected.");
++        break;
++      case "update":
++        await hmrClient.notifyListeners("vite:beforeUpdate", payload), await Promise.all(payload.updates.map(async (update) => {
++          if (update.type === "js-update") return update.acceptedPath = unwrapId(update.acceptedPath), update.path = unwrapId(update.path), hmrClient.queueUpdate(update);
++          hmrClient.logger.error("css hmr is not supported in runner mode.");
++        })), await hmrClient.notifyListeners("vite:afterUpdate", payload);
++        break;
++      case "custom":
++        await hmrClient.notifyListeners(payload.event, payload.data);
++        break;
++      case "full-reload": {
++        let { triggeredBy } = payload, clearEntrypointUrls = triggeredBy ? getModulesEntrypoints(runner, getModulesByFile(runner, slash(triggeredBy))) : findAllEntrypoints(runner);
++        if (!clearEntrypointUrls.size) break;
++        hmrClient.logger.debug("program reload"), await hmrClient.notifyListeners("vite:beforeFullReload", payload), runner.evaluatedModules.clear();
++        for (let url of clearEntrypointUrls) try {
++          await runner.import(url);
++        } catch (err) {
++          err.code !== "ERR_OUTDATED_OPTIMIZED_DEP" && hmrClient.logger.error(`An error happened during full reload
+ ${err.message}
+-${err.stack}`
+-              );
+-            }
+-          break;
++${err.stack}`);
+         }
+-        case "prune":
+-          await hmrClient.notifyListeners("vite:beforePrune", payload), await hmrClient.prunePaths(payload.paths);
+-          break;
+-        case "error": {
+-          await hmrClient.notifyListeners("vite:error", payload);
+-          const err = payload.err;
+-          hmrClient.logger.error(
+-            `Internal Server Error
++        break;
++      }
++      case "prune":
++        await hmrClient.notifyListeners("vite:beforePrune", payload), await hmrClient.prunePaths(payload.paths);
++        break;
++      case "error": {
++        await hmrClient.notifyListeners("vite:error", payload);
++        let err = payload.err;
++        hmrClient.logger.error(`Internal Server Error
+ ${err.message}
+-${err.stack}`
+-          );
+-          break;
+-        }
+-        case "ping":
+-          break;
+-        default:
+-          return payload;
++${err.stack}`);
++        break;
+       }
++      case "ping":
++        break;
++      default:
++        return payload;
++    }
+   });
+ }
+ function getModulesByFile(runner, file) {
+-  const nodes = runner.evaluatedModules.getModulesByFile(file);
++  let nodes = runner.evaluatedModules.getModulesByFile(file);
+   return nodes ? [...nodes].map((node) => node.id) : [];
+ }
+ function getModulesEntrypoints(runner, modules, visited = /* @__PURE__ */ new Set(), entrypoints = /* @__PURE__ */ new Set()) {
+-  for (const moduleId of modules) {
++  for (let moduleId of modules) {
+     if (visited.has(moduleId)) continue;
+     visited.add(moduleId);
+-    const module = runner.evaluatedModules.getModuleById(moduleId);
++    let module = runner.evaluatedModules.getModuleById(moduleId);
+     if (module) {
+       if (!module.importers.size) {
+         entrypoints.add(module.url);
+         continue;
+       }
+-      for (const importer of module.importers)
+-        getModulesEntrypoints(runner, [importer], visited, entrypoints);
++      for (let importer of module.importers) getModulesEntrypoints(runner, [importer], visited, entrypoints);
+     }
+   }
+   return entrypoints;
+ }
+ function findAllEntrypoints(runner, entrypoints = /* @__PURE__ */ new Set()) {
+-  for (const mod of runner.evaluatedModules.idToModuleMap.values())
+-    mod.importers.size || entrypoints.add(mod.url);
++  for (let mod of runner.evaluatedModules.idToModuleMap.values()) mod.importers.size || entrypoints.add(mod.url);
+   return entrypoints;
+ }
+ var sourceMapCache = {};
+@@ -838,69 +766,62 @@ var fileContentsCache = {};
+ var evaluatedModulesCache = /* @__PURE__ */ new Set();
+ var retrieveFileHandlers = /* @__PURE__ */ new Set();
+ var retrieveSourceMapHandlers = /* @__PURE__ */ new Set();
+-var createExecHandlers = (handlers) => (...args) => {
+-  for (const handler of handlers) {
+-    const result = handler(...args);
++var createExecHandlers = (handlers) => ((...args) => {
++  for (let handler of handlers) {
++    let result = handler(...args);
+     if (result) return result;
+   }
+   return null;
+-};
++});
+ var retrieveFileFromHandlers = createExecHandlers(retrieveFileHandlers);
+-var retrieveSourceMapFromHandlers = createExecHandlers(
+-  retrieveSourceMapHandlers
+-);
++var retrieveSourceMapFromHandlers = createExecHandlers(retrieveSourceMapHandlers);
+ var overridden = false;
+ var originalPrepare = Error.prepareStackTrace;
+ function resetInterceptor(runner, options) {
+   evaluatedModulesCache.delete(runner.evaluatedModules), options.retrieveFile && retrieveFileHandlers.delete(options.retrieveFile), options.retrieveSourceMap && retrieveSourceMapHandlers.delete(options.retrieveSourceMap), evaluatedModulesCache.size === 0 && (Error.prepareStackTrace = originalPrepare, overridden = false);
+ }
+ function interceptStackTrace(runner, options = {}) {
+-  return overridden || (Error.prepareStackTrace = prepareStackTrace, overridden = true), evaluatedModulesCache.add(runner.evaluatedModules), options.retrieveFile && retrieveFileHandlers.add(options.retrieveFile), options.retrieveSourceMap && retrieveSourceMapHandlers.add(options.retrieveSourceMap), () => resetInterceptor(runner, options);
++  return overridden ||= (Error.prepareStackTrace = prepareStackTrace, true), evaluatedModulesCache.add(runner.evaluatedModules), options.retrieveFile && retrieveFileHandlers.add(options.retrieveFile), options.retrieveSourceMap && retrieveSourceMapHandlers.add(options.retrieveSourceMap), () => resetInterceptor(runner, options);
+ }
+ function supportRelativeURL(file, url) {
+   if (!file) return url;
+-  const dir = posixDirname(slash(file)), match = /^\w+:\/\/[^/]*/.exec(dir);
+-  let protocol = match ? match[0] : "";
+-  const startPath = dir.slice(protocol.length);
++  let dir = posixDirname(slash(file)), match = /^\w+:\/\/[^/]*/.exec(dir), protocol = match ? match[0] : "", startPath = dir.slice(protocol.length);
+   return protocol && /^\/\w:/.test(startPath) ? (protocol += "/", protocol + slash(posixResolve(startPath, url))) : protocol + posixResolve(startPath, url);
+ }
+ function getRunnerSourceMap(position) {
+-  for (const moduleGraph of evaluatedModulesCache) {
+-    const sourceMap = moduleGraph.getModuleSourceMapById(position.source);
+-    if (sourceMap)
+-      return {
+-        url: position.source,
+-        map: sourceMap,
+-        vite: true
+-      };
++  for (let moduleGraph of evaluatedModulesCache) {
++    let sourceMap = moduleGraph.getModuleSourceMapById(position.source);
++    if (sourceMap) return {
++      url: position.source,
++      map: sourceMap,
++      vite: true
++    };
+   }
+   return null;
+ }
+ function retrieveFile(path) {
+   if (path in fileContentsCache) return fileContentsCache[path];
+-  const content = retrieveFileFromHandlers(path);
++  let content = retrieveFileFromHandlers(path);
+   return typeof content == "string" ? (fileContentsCache[path] = content, content) : null;
+ }
+ function retrieveSourceMapURL(source) {
+-  const fileData = retrieveFile(source);
++  let fileData = retrieveFile(source);
+   if (!fileData) return null;
+-  const re = /\/\/[@#]\s*sourceMappingURL=([^\s'"]+)\s*$|\/\*[@#]\s*sourceMappingURL=[^\s*'"]+\s*\*\/\s*$/gm;
+-  let lastMatch, match;
++  let re = /\/\/[@#]\s*sourceMappingURL=([^\s'"]+)\s*$|\/\*[@#]\s*sourceMappingURL=[^\s*'"]+\s*\*\/\s*$/gm, lastMatch, match;
+   for (; match = re.exec(fileData); ) lastMatch = match;
+   return lastMatch ? lastMatch[1] : null;
+ }
+ var reSourceMap = /^data:application\/json[^,]+base64,/;
+ function retrieveSourceMap(source) {
+-  const urlAndMap = retrieveSourceMapFromHandlers(source);
++  let urlAndMap = retrieveSourceMapFromHandlers(source);
+   if (urlAndMap) return urlAndMap;
+   let sourceMappingURL = retrieveSourceMapURL(source);
+   if (!sourceMappingURL) return null;
+   let sourceMapData;
+   if (reSourceMap.test(sourceMappingURL)) {
+-    const rawData = sourceMappingURL.slice(sourceMappingURL.indexOf(",") + 1);
++    let rawData = sourceMappingURL.slice(sourceMappingURL.indexOf(",") + 1);
+     sourceMapData = Buffer.from(rawData, "base64").toString(), sourceMappingURL = source;
+-  } else
+-    sourceMappingURL = supportRelativeURL(source, sourceMappingURL), sourceMapData = retrieveFile(sourceMappingURL);
++  } else sourceMappingURL = supportRelativeURL(source, sourceMappingURL), sourceMapData = retrieveFile(sourceMappingURL);
+   return sourceMapData ? {
+     url: sourceMappingURL,
+     map: sourceMapData
+@@ -909,49 +830,41 @@ function retrieveSourceMap(source) {
+ function mapSourcePosition(position) {
+   if (!position.source) return position;
+   let sourceMap = getRunnerSourceMap(position);
+-  if (sourceMap || (sourceMap = sourceMapCache[position.source]), !sourceMap) {
+-    const urlAndMap = retrieveSourceMap(position.source);
++  if (sourceMap ||= sourceMapCache[position.source], !sourceMap) {
++    let urlAndMap = retrieveSourceMap(position.source);
+     if (urlAndMap && urlAndMap.map) {
+-      const url = urlAndMap.url;
++      let url = urlAndMap.url;
+       sourceMap = sourceMapCache[position.source] = {
+         url,
+-        map: new DecodedMap(
+-          typeof urlAndMap.map == "string" ? JSON.parse(urlAndMap.map) : urlAndMap.map,
+-          url
+-        )
++        map: new DecodedMap(typeof urlAndMap.map == "string" ? JSON.parse(urlAndMap.map) : urlAndMap.map, url)
+       };
+-      const contents = sourceMap.map?.map.sourcesContent;
++      let contents = sourceMap.map?.map.sourcesContent;
+       sourceMap.map && contents && sourceMap.map.resolvedSources.forEach((source, i) => {
+-        const content = contents[i];
++        let content = contents[i];
+         if (content && source && url) {
+-          const contentUrl = supportRelativeURL(url, source);
++          let contentUrl = supportRelativeURL(url, source);
+           fileContentsCache[contentUrl] = content;
+         }
+       });
+-    } else
+-      sourceMap = sourceMapCache[position.source] = {
+-        url: null,
+-        map: null
+-      };
++    } else sourceMap = sourceMapCache[position.source] = {
++      url: null,
++      map: null
++    };
+   }
+   if (sourceMap.map && sourceMap.url) {
+-    const originalPosition = getOriginalPosition(sourceMap.map, position);
+-    if (originalPosition && originalPosition.source != null)
+-      return originalPosition.source = supportRelativeURL(
+-        sourceMap.url,
+-        originalPosition.source
+-      ), sourceMap.vite && (originalPosition._vite = true), originalPosition;
++    let originalPosition = getOriginalPosition(sourceMap.map, position);
++    if (originalPosition && originalPosition.source != null) return originalPosition.source = supportRelativeURL(sourceMap.url, originalPosition.source), sourceMap.vite && (originalPosition._vite = true), originalPosition;
+   }
+   return position;
+ }
+ function mapEvalOrigin(origin) {
+   let match = /^eval at ([^(]+) \((.+):(\d+):(\d+)\)$/.exec(origin);
+   if (match) {
+-    const position = mapSourcePosition({
++    let position = mapSourcePosition({
+       name: null,
+       source: match[2],
+       line: +match[3],
+-      column: +match[4] - 1
++      column: match[4] - 1
+     });
+     return `eval at ${match[1]} (${position.source}:${position.line}:${position.column + 1})`;
+   }
+@@ -959,62 +872,55 @@ function mapEvalOrigin(origin) {
+ }
+ function CallSiteToString() {
+   let fileName, fileLocation = "";
+-  if (this.isNative())
+-    fileLocation = "native";
++  if (this.isNative()) fileLocation = "native";
+   else {
+     fileName = this.getScriptNameOrSourceURL(), !fileName && this.isEval() && (fileLocation = this.getEvalOrigin(), fileLocation += ", "), fileName ? fileLocation += fileName : fileLocation += "<anonymous>";
+-    const lineNumber = this.getLineNumber();
++    let lineNumber = this.getLineNumber();
+     if (lineNumber != null) {
+       fileLocation += `:${lineNumber}`;
+-      const columnNumber = this.getColumnNumber();
++      let columnNumber = this.getColumnNumber();
+       columnNumber && (fileLocation += `:${columnNumber}`);
+     }
+   }
+-  let line = "";
+-  const functionName = this.getFunctionName();
+-  let addSuffix = true;
+-  const isConstructor = this.isConstructor();
+-  if (this.isToplevel() || isConstructor)
+-    isConstructor ? line += `new ${functionName || "<anonymous>"}` : functionName ? line += functionName : (line += fileLocation, addSuffix = false);
++  let line = "", functionName = this.getFunctionName(), addSuffix = true, isConstructor = this.isConstructor();
++  if (this.isToplevel() || isConstructor) isConstructor ? line += `new ${functionName || "<anonymous>"}` : functionName ? line += functionName : (line += fileLocation, addSuffix = false);
+   else {
+     let typeName = this.getTypeName();
+     typeName === "[object Object]" && (typeName = "null");
+-    const methodName = this.getMethodName();
++    let methodName = this.getMethodName();
+     functionName ? (typeName && functionName.indexOf(typeName) !== 0 && (line += `${typeName}.`), line += functionName, methodName && functionName.indexOf(`.${methodName}`) !== functionName.length - methodName.length - 1 && (line += ` [as ${methodName}]`)) : line += `${typeName}.${methodName || "<anonymous>"}`;
+   }
+   return addSuffix && (line += ` (${fileLocation})`), line;
+ }
+ function cloneCallSite(frame) {
+-  const object = {};
++  let object = {};
+   return Object.getOwnPropertyNames(Object.getPrototypeOf(frame)).forEach((name) => {
+-    const key = name;
++    let key = name;
+     object[key] = /^(?:is|get)/.test(name) ? function() {
+       return frame[key].call(frame);
+     } : frame[key];
+   }), object.toString = CallSiteToString, object;
+ }
+ function wrapCallSite(frame, state) {
+-  if (state === void 0 && (state = { nextPosition: null, curPosition: null }), frame.isNative())
+-    return state.curPosition = null, frame;
+-  const source = frame.getFileName() || frame.getScriptNameOrSourceURL();
++  if (state === void 0 && (state = {
++    nextPosition: null,
++    curPosition: null
++  }), frame.isNative()) return state.curPosition = null, frame;
++  let source = frame.getFileName() || frame.getScriptNameOrSourceURL();
+   if (source) {
+-    const line = frame.getLineNumber();
+-    let column = frame.getColumnNumber() - 1;
+-    const headerLength = 62;
+-    line === 1 && column > headerLength && !frame.isEval() && (column -= headerLength);
+-    const position = mapSourcePosition({
++    let position = mapSourcePosition({
+       name: null,
+       source,
+-      line,
+-      column
++      line: frame.getLineNumber() ?? 0,
++      column: (frame.getColumnNumber() ?? 1) - 1
+     });
+     state.curPosition = position, frame = cloneCallSite(frame);
+-    const originalFunctionName = frame.getFunctionName;
++    let originalFunctionName = frame.getFunctionName;
+     return frame.getFunctionName = function() {
+-      const name = state.nextPosition == null ? originalFunctionName() : state.nextPosition.name || originalFunctionName();
++      let name = state.nextPosition == null ? originalFunctionName() : state.nextPosition.name || originalFunctionName();
+       return name === "eval" && "_vite" in position ? null : name;
+     }, frame.getFileName = function() {
+-      return position.source ?? void 0;
++      return position.source ?? null;
+     }, frame.getLineNumber = function() {
+       return position.line;
+     }, frame.getColumnNumber = function() {
+@@ -1024,156 +930,144 @@ function wrapCallSite(frame, state) {
+     }, frame;
+   }
+   let origin = frame.isEval() && frame.getEvalOrigin();
+-  return origin && (origin = mapEvalOrigin(origin), frame = cloneCallSite(frame), frame.getEvalOrigin = function() {
++  return origin ? (origin = mapEvalOrigin(origin), frame = cloneCallSite(frame), frame.getEvalOrigin = function() {
+     return origin || void 0;
+-  }), frame;
++  }, frame) : frame;
+ }
+ function prepareStackTrace(error, stack) {
+-  const name = error.name || "Error", message = error.message || "", errorString = `${name}: ${message}`, state = { nextPosition: null, curPosition: null }, processedStack = [];
+-  for (let i = stack.length - 1; i >= 0; i--)
+-    processedStack.push(`
++  let errorString = `${error.name || "Error"}: ${error.message || ""}`, state = {
++    nextPosition: null,
++    curPosition: null
++  }, processedStack = [];
++  for (let i = stack.length - 1; i >= 0; i--) processedStack.push(`
+     at ${wrapCallSite(stack[i], state)}`), state.nextPosition = state.curPosition;
+   return state.curPosition = state.nextPosition = null, errorString + processedStack.reverse().join("");
+ }
+ function enableSourceMapSupport(runner) {
+   if (runner.options.sourcemapInterceptor === "node") {
+-    if (typeof process > "u")
+-      throw new TypeError(
+-        `Cannot use "sourcemapInterceptor: 'node'" because global "process" variable is not available.`
+-      );
+-    if (typeof process.setSourceMapsEnabled != "function")
+-      throw new TypeError(
+-        `Cannot use "sourcemapInterceptor: 'node'" because "process.setSourceMapsEnabled" function is not available. Please use Node >= 16.6.0.`
+-      );
+-    const isEnabledAlready = process.sourceMapsEnabled ?? false;
++    if (typeof process > "u") throw TypeError(`Cannot use "sourcemapInterceptor: 'node'" because global "process" variable is not available.`);
++    if (typeof process.setSourceMapsEnabled != "function") throw TypeError(`Cannot use "sourcemapInterceptor: 'node'" because "process.setSourceMapsEnabled" function is not available. Please use Node >= 16.6.0.`);
++    let isEnabledAlready = process.sourceMapsEnabled ?? false;
+     return process.setSourceMapsEnabled(true), () => !isEnabledAlready && process.setSourceMapsEnabled(false);
+   }
+-  return interceptStackTrace(
+-    runner,
+-    typeof runner.options.sourcemapInterceptor == "object" ? runner.options.sourcemapInterceptor : void 0
+-  );
++  return interceptStackTrace(runner, typeof runner.options.sourcemapInterceptor == "object" ? runner.options.sourcemapInterceptor : void 0);
+ }
+ var ESModulesEvaluator = class {
+   startOffset = getAsyncFunctionDeclarationPaddingLineCount();
+   async runInlinedModule(context, code) {
+-    await new AsyncFunction(
+-      ssrModuleExportsKey,
+-      ssrImportMetaKey,
+-      ssrImportKey,
+-      ssrDynamicImportKey,
+-      ssrExportAllKey,
+-      // source map should already be inlined by Vite
+-      '"use strict";' + code
+-    )(
+-      context[ssrModuleExportsKey],
+-      context[ssrImportMetaKey],
+-      context[ssrImportKey],
+-      context[ssrDynamicImportKey],
+-      context[ssrExportAllKey]
+-    ), Object.seal(context[ssrModuleExportsKey]);
++    await new AsyncFunction(ssrModuleExportsKey, ssrImportMetaKey, ssrImportKey, ssrDynamicImportKey, ssrExportAllKey, ssrExportNameKey, '"use strict";' + code)(context[ssrModuleExportsKey], context[ssrImportMetaKey], context[ssrImportKey], context[ssrDynamicImportKey], context[ssrExportAllKey], context[ssrExportNameKey]), Object.seal(context[ssrModuleExportsKey]);
+   }
+   runExternalModule(filepath) {
+     return import(filepath);
+   }
+ };
++var customizationHookNamespace = "vite-module-runner:import-meta-resolve/v1/";
++var customizationHooksModule = `
++
++export async function resolve(specifier, context, nextResolve) {
++  if (specifier.startsWith(${JSON.stringify(customizationHookNamespace)})) {
++    const data = specifier.slice(${JSON.stringify(customizationHookNamespace)}.length)
++    const [parsedSpecifier, parsedImporter] = JSON.parse(data)
++    specifier = parsedSpecifier
++    context.parentURL = parsedImporter
++  }
++  return nextResolve(specifier, context)
++}
++
++`;
++`${customizationHookNamespace}`;
++var envProxy = new Proxy({}, { get(_, p) {
++  throw Error(`[module runner] Dynamic access of "import.meta.env" is not supported. Please, use "import.meta.env.${String(p)}" instead.`);
++} });
++function createDefaultImportMeta(modulePath) {
++  let href = posixPathToFileHref(modulePath), filename = modulePath, dirname2 = posixDirname(modulePath);
++  return {
++    filename: isWindows ? toWindowsPath(filename) : filename,
++    dirname: isWindows ? toWindowsPath(dirname2) : dirname2,
++    url: href,
++    env: envProxy,
++    resolve(_id, _parent) {
++      throw Error('[module runner] "import.meta.resolve" is not supported.');
++    },
++    glob() {
++      throw Error('[module runner] "import.meta.glob" is statically replaced during file transformation. Make sure to reference it by the full name.');
++    }
++  };
++}
+ var ModuleRunner = class {
+-  constructor(options, evaluator = new ESModulesEvaluator(), debug) {
+-    if (this.options = options, this.evaluator = evaluator, this.debug = debug, this.evaluatedModules = options.evaluatedModules ?? new EvaluatedModules(), this.transport = normalizeModuleRunnerTransport(options.transport), options.hmr !== false) {
+-      const optionsHmr = options.hmr ?? true, resolvedHmrLogger = optionsHmr === true || optionsHmr.logger === void 0 ? hmrLogger : optionsHmr.logger === false ? silentConsole : optionsHmr.logger;
+-      if (this.hmrClient = new HMRClient(
+-        resolvedHmrLogger,
+-        this.transport,
+-        ({ acceptedPath }) => this.import(acceptedPath)
+-      ), !this.transport.connect)
+-        throw new Error(
+-          "HMR is not supported by this runner transport, but `hmr` option was set to true"
+-        );
+-      this.transport.connect(createHMRHandlerForRunner(this));
+-    } else
+-      this.transport.connect?.();
+-    options.sourcemapInterceptor !== false && (this.resetSourceMapSupport = enableSourceMapSupport(this));
+-  }
+   evaluatedModules;
+   hmrClient;
+-  envProxy = new Proxy({}, {
+-    get(_, p) {
+-      throw new Error(
+-        `[module runner] Dynamic access of "import.meta.env" is not supported. Please, use "import.meta.env.${String(p)}" instead.`
+-      );
+-    }
+-  });
+   transport;
+   resetSourceMapSupport;
+   concurrentModuleNodePromises = /* @__PURE__ */ new Map();
++  isBuiltin;
++  builtinsPromise;
+   closed = false;
++  constructor(options, evaluator = new ESModulesEvaluator(), debug) {
++    if (this.options = options, this.evaluator = evaluator, this.debug = debug, this.evaluatedModules = options.evaluatedModules ?? new EvaluatedModules(), this.transport = normalizeModuleRunnerTransport(options.transport), options.hmr !== false) {
++      let optionsHmr = options.hmr ?? true;
++      if (this.hmrClient = new HMRClient(optionsHmr === true || optionsHmr.logger === void 0 ? hmrLogger : optionsHmr.logger === false ? silentConsole : optionsHmr.logger, this.transport, ({ acceptedPath }) => this.import(acceptedPath)), !this.transport.connect) throw Error("HMR is not supported by this runner transport, but `hmr` option was set to true");
++      this.transport.connect(createHMRHandlerForRunner(this));
++    } else this.transport.connect?.();
++    options.sourcemapInterceptor !== false && (this.resetSourceMapSupport = enableSourceMapSupport(this));
++  }
+   /**
+-   * URL to execute. Accepts file path, server path or id relative to the root.
+-   */
++  * URL to execute. Accepts file path, server path or id relative to the root.
++  */
+   async import(url) {
+-    const fetchedModule = await this.cachedModule(url);
++    let fetchedModule = await this.cachedModule(url);
+     return await this.cachedRequest(url, fetchedModule);
+   }
+   /**
+-   * Clear all caches including HMR listeners.
+-   */
++  * Clear all caches including HMR listeners.
++  */
+   clearCache() {
+     this.evaluatedModules.clear(), this.hmrClient?.clear();
+   }
+   /**
+-   * Clears all caches, removes all HMR listeners, and resets source map support.
+-   * This method doesn't stop the HMR connection.
+-   */
++  * Clears all caches, removes all HMR listeners, and resets source map support.
++  * This method doesn't stop the HMR connection.
++  */
+   async close() {
+     this.resetSourceMapSupport?.(), this.clearCache(), this.hmrClient = void 0, this.closed = true, await this.transport.disconnect?.();
+   }
+   /**
+-   * Returns `true` if the runtime has been closed by calling `close()` method.
+-   */
++  * Returns `true` if the runtime has been closed by calling `close()` method.
++  */
+   isClosed() {
+     return this.closed;
+   }
+   processImport(exports, fetchResult, metadata) {
+-    if (!("externalize" in fetchResult))
+-      return exports;
+-    const { url, type } = fetchResult;
++    if (!("externalize" in fetchResult)) return exports;
++    let { url, type } = fetchResult;
+     return type !== "module" && type !== "commonjs" || analyzeImportedModDifference(exports, url, type, metadata), exports;
+   }
+   isCircularModule(mod) {
+-    for (const importedFile of mod.imports)
+-      if (mod.importers.has(importedFile))
+-        return true;
++    for (let importedFile of mod.imports) if (mod.importers.has(importedFile)) return true;
+     return false;
+   }
+   isCircularImport(importers, moduleUrl, visited = /* @__PURE__ */ new Set()) {
+-    for (const importer of importers) {
+-      if (visited.has(importer))
+-        continue;
+-      if (visited.add(importer), importer === moduleUrl)
+-        return true;
+-      const mod = this.evaluatedModules.getModuleById(importer);
+-      if (mod && mod.importers.size && this.isCircularImport(mod.importers, moduleUrl, visited))
+-        return true;
++    for (let importer of importers) {
++      if (visited.has(importer)) continue;
++      if (visited.add(importer), importer === moduleUrl) return true;
++      let mod = this.evaluatedModules.getModuleById(importer);
++      if (mod && mod.importers.size && this.isCircularImport(mod.importers, moduleUrl, visited)) return true;
+     }
+     return false;
+   }
+   async cachedRequest(url, mod, callstack = [], metadata) {
+-    const meta = mod.meta, moduleId = meta.id, { importers } = mod, importee = callstack[callstack.length - 1];
+-    if (importee && importers.add(importee), (callstack.includes(moduleId) || this.isCircularModule(mod) || this.isCircularImport(importers, moduleId)) && mod.exports)
+-      return this.processImport(mod.exports, meta, metadata);
++    let meta = mod.meta, moduleId = meta.id, { importers } = mod, importee = callstack[callstack.length - 1];
++    if (importee && importers.add(importee), mod.evaluated && mod.promise) return this.processImport(await mod.promise, meta, metadata);
++    if ((callstack.includes(moduleId) || this.isCircularModule(mod) || this.isCircularImport(importers, moduleId)) && mod.exports) return this.processImport(mod.exports, meta, metadata);
+     let debugTimer;
+     this.debug && (debugTimer = setTimeout(() => {
+-      const getStack = () => `stack:
+-${[...callstack, moduleId].reverse().map((p) => `  - ${p}`).join(`
+-`)}`;
+-      this.debug(
+-        `[module runner] module ${moduleId} takes over 2s to load.
+-${getStack()}`
+-      );
++      this.debug(`[module runner] module ${moduleId} takes over 2s to load.
++${`stack:
++${[...callstack, moduleId].reverse().map((p) => `  - ${p}`).join("\n")}`}`);
+     }, 2e3));
+     try {
+-      if (mod.promise)
+-        return this.processImport(await mod.promise, meta, metadata);
+-      const promise = this.directRequest(url, mod, callstack);
++      if (mod.promise) return this.processImport(await mod.promise, meta, metadata);
++      let promise = this.directRequest(url, mod, callstack);
+       return mod.promise = promise, mod.evaluated = false, this.processImport(await promise, meta, metadata);
+     } finally {
+       mod.evaluated = true, debugTimer && clearTimeout(debugTimer);
+@@ -1181,79 +1075,64 @@ ${getStack()}`
+   }
+   async cachedModule(url, importer) {
+     let cached = this.concurrentModuleNodePromises.get(url);
+-    if (cached)
+-      this.debug?.("[module runner] using cached module info for", url);
++    if (cached) this.debug?.("[module runner] using cached module info for", url);
+     else {
+-      const cachedModule = this.evaluatedModules.getModuleByUrl(url);
+-      cached = this.getModuleInformation(url, importer, cachedModule).finally(
+-        () => {
+-          this.concurrentModuleNodePromises.delete(url);
+-        }
+-      ), this.concurrentModuleNodePromises.set(url, cached);
++      let cachedModule = this.evaluatedModules.getModuleByUrl(url);
++      cached = this.getModuleInformation(url, importer, cachedModule).finally(() => {
++        this.concurrentModuleNodePromises.delete(url);
++      }), this.concurrentModuleNodePromises.set(url, cached);
+     }
+     return cached;
+   }
++  ensureBuiltins() {
++    if (!this.isBuiltin) return this.builtinsPromise ??= (async () => {
++      try {
++        this.debug?.("[module runner] fetching builtins from server");
++        let builtins = (await this.transport.invoke("getBuiltins", [])).map((builtin) => typeof builtin == "object" && builtin && "type" in builtin ? builtin.type === "string" ? builtin.value : new RegExp(builtin.source, builtin.flags) : builtin);
++        this.isBuiltin = createIsBuiltin(builtins), this.debug?.("[module runner] builtins loaded:", builtins);
++      } finally {
++        this.builtinsPromise = void 0;
++      }
++    })(), this.builtinsPromise;
++  }
+   async getModuleInformation(url, importer, cachedModule) {
+-    if (this.closed)
+-      throw new Error("Vite module runner has been closed.");
+-    this.debug?.("[module runner] fetching", url);
+-    const isCached = !!(typeof cachedModule == "object" && cachedModule.meta), fetchedModule = (
+-      // fast return for established externalized pattern
+-      url.startsWith("data:") ? { externalize: url, type: "builtin" } : await this.transport.invoke("fetchModule", [
+-        url,
+-        importer,
+-        {
+-          cached: isCached,
+-          startOffset: this.evaluator.startOffset
+-        }
+-      ])
+-    );
++    if (this.closed) throw Error("Vite module runner has been closed.");
++    await this.ensureBuiltins(), this.debug?.("[module runner] fetching", url);
++    let isCached = !!(typeof cachedModule == "object" && cachedModule.meta), fetchedModule = url.startsWith("data:") || this.isBuiltin?.(url) ? {
++      externalize: url,
++      type: "builtin"
++    } : await this.transport.invoke("fetchModule", [
++      url,
++      importer,
++      {
++        cached: isCached,
++        startOffset: this.evaluator.startOffset
++      }
++    ]);
+     if ("cache" in fetchedModule) {
+-      if (!cachedModule || !cachedModule.meta)
+-        throw new Error(
+-          `Module "${url}" was mistakenly invalidated during fetch phase.`
+-        );
++      if (!cachedModule || !cachedModule.meta) throw Error(`Module "${url}" was mistakenly invalidated during fetch phase.`);
+       return cachedModule;
+     }
+-    const moduleId = "externalize" in fetchedModule ? fetchedModule.externalize : fetchedModule.id, moduleUrl = "url" in fetchedModule ? fetchedModule.url : url, module = this.evaluatedModules.ensureModule(moduleId, moduleUrl);
++    let moduleId = "externalize" in fetchedModule ? fetchedModule.externalize : fetchedModule.id, moduleUrl = "url" in fetchedModule ? fetchedModule.url : url, module = this.evaluatedModules.ensureModule(moduleId, moduleUrl);
+     return "invalidate" in fetchedModule && fetchedModule.invalidate && this.evaluatedModules.invalidateModule(module), fetchedModule.url = moduleUrl, fetchedModule.id = moduleId, module.meta = fetchedModule, module;
+   }
+-  // override is allowed, consider this a public API
+   async directRequest(url, mod, _callstack) {
+-    const fetchResult = mod.meta, moduleId = fetchResult.id, callstack = [..._callstack, moduleId], request = async (dep, metadata) => {
+-      const importer = "file" in fetchResult && fetchResult.file || moduleId, depMod = await this.cachedModule(dep, importer);
++    let fetchResult = mod.meta, moduleId = fetchResult.id, callstack = [..._callstack, moduleId], request = async (dep, metadata) => {
++      let importer = "file" in fetchResult && fetchResult.file || moduleId, depMod = await this.cachedModule(dep, importer);
+       return depMod.importers.add(moduleId), mod.imports.add(depMod.id), this.cachedRequest(dep, depMod, callstack, metadata);
+     }, dynamicRequest = async (dep) => (dep = String(dep), dep[0] === "." && (dep = posixResolve(posixDirname(url), dep)), request(dep, { isDynamicImport: true }));
+     if ("externalize" in fetchResult) {
+-      const { externalize } = fetchResult;
++      let { externalize } = fetchResult;
+       this.debug?.("[module runner] externalizing", externalize);
+-      const exports2 = await this.evaluator.runExternalModule(externalize);
++      let exports2 = await this.evaluator.runExternalModule(externalize);
+       return mod.exports = exports2, exports2;
+     }
+-    const { code, file } = fetchResult;
++    let { code, file } = fetchResult;
+     if (code == null) {
+-      const importer = callstack[callstack.length - 2];
+-      throw new Error(
+-        `[module runner] Failed to load "${url}"${importer ? ` imported from ${importer}` : ""}`
+-      );
++      let importer = callstack[callstack.length - 2];
++      throw Error(`[module runner] Failed to load "${url}"${importer ? ` imported from ${importer}` : ""}`);
+     }
+-    const modulePath = cleanUrl(file || moduleId), href = posixPathToFileHref(modulePath), filename = modulePath, dirname2 = posixDirname(modulePath), meta = {
+-      filename: isWindows ? toWindowsPath(filename) : filename,
+-      dirname: isWindows ? toWindowsPath(dirname2) : dirname2,
+-      url: href,
+-      env: this.envProxy,
+-      resolve(_id, _parent) {
+-        throw new Error(
+-          '[module runner] "import.meta.resolve" is not supported.'
+-        );
+-      },
+-      // should be replaced during transformation
+-      glob() {
+-        throw new Error(
+-          '[module runner] "import.meta.glob" is statically replaced during file transformation. Make sure to reference it by the full name.'
+-        );
+-      }
+-    }, exports = /* @__PURE__ */ Object.create(null);
++    let createImportMeta = this.options.createImportMeta ?? createDefaultImportMeta, modulePath = cleanUrl(file || moduleId), href = posixPathToFileHref(modulePath), meta = await createImportMeta(modulePath), exports = /* @__PURE__ */ Object.create(null);
+     Object.defineProperty(exports, Symbol.toStringTag, {
+       value: "Module",
+       enumerable: false,
+@@ -1263,19 +1142,23 @@ ${getStack()}`
+     this.hmrClient && Object.defineProperty(meta, "hot", {
+       enumerable: true,
+       get: () => {
+-        if (!this.hmrClient)
+-          throw new Error("[module runner] HMR client was closed.");
++        if (!this.hmrClient) throw Error("[module runner] HMR client was closed.");
+         return this.debug?.("[module runner] creating hmr context for", mod.url), hotContext ||= new HMRContext(this.hmrClient, mod.url), hotContext;
+       },
+       set: (value) => {
+         hotContext = value;
+       }
+     });
+-    const context = {
++    let context = {
+       [ssrImportKey]: request,
+       [ssrDynamicImportKey]: dynamicRequest,
+       [ssrModuleExportsKey]: exports,
+       [ssrExportAllKey]: (obj) => exportAll(exports, obj),
++      [ssrExportNameKey]: (name, getter) => Object.defineProperty(exports, name, {
++        enumerable: true,
++        configurable: true,
++        get: getter
++      }),
+       [ssrImportMetaKey]: meta
+     };
+     return this.debug?.("[module runner] executing", href), await this.evaluator.runInlinedModule(context, code, mod), exports;
+@@ -1283,16 +1166,14 @@ ${getStack()}`
+ };
+ function exportAll(exports, sourceModule) {
+   if (exports !== sourceModule && !(isPrimitive(sourceModule) || Array.isArray(sourceModule) || sourceModule instanceof Promise)) {
+-    for (const key in sourceModule)
+-      if (key !== "default" && key !== "__esModule" && !(key in exports))
+-        try {
+-          Object.defineProperty(exports, key, {
+-            enumerable: true,
+-            configurable: true,
+-            get: () => sourceModule[key]
+-          });
+-        } catch {
+-        }
++    for (let key in sourceModule) if (key !== "default" && key !== "__esModule" && !(key in exports)) try {
++      Object.defineProperty(exports, key, {
++        enumerable: true,
++        configurable: true,
++        get: () => sourceModule[key]
++      });
++    } catch {
++    }
+   }
+ }
+ 
+@@ -1343,7 +1224,7 @@ var worker_entry_default = {
+   async fetch(request, env, context) {
+     env.__VITE_SETUP_ENV(request);
+     const url = new URL(request.url);
+-    const module = await fetchEntryModule(url, env);
++    const module = await fetchEntryModule(env);
+     if ("errorResponse" in module) {
+       return module.errorResponse;
+     }
+@@ -1365,24 +1246,27 @@ function createUserEnv(env) {
+   );
+ }
+ var runtime;
+-function fetchEntryModule(publicUrl, env) {
++function fetchEntryModule(env) {
+   if (!runtime) {
+     runtime = new ModuleRunner(
+       {
+-        root: env.__VITE_ROOT,
+         sourcemapInterceptor: "prepareStackTrace",
+         transport: {
+-          invoke: async (data) => {
+-            if (data.type === "custom") {
+-              const customData = data.data;
+-              const url = new URL(env.__VITE_FETCH_MODULE_PATHNAME, publicUrl);
+-              url.searchParams.set("id", customData.data[0]);
+-              if (customData.data)
+-                url.searchParams.set("importer", customData.name);
+-              return fetch(url).then((res) => ({ result: res.json() }));
++          invoke: async (payload) => {
++            if (payload.type === "custom" && payload.event === "vite:invoke" && isViteInvokePayload(payload.data)) {
++              if (payload.data.name === "getBuiltins") {
++                return Promise.resolve({ result: [] });
++              }
++              return env.__VITE_INVOKE_MODULE.fetch(
++                new Request("http://mini-oxygen", {
++                  method: "POST",
++                  headers: { "Content-Type": "application/json" },
++                  body: JSON.stringify(payload)
++                })
++              ).then((res) => res.json());
+             }
+             return Promise.resolve({
+-              error: `Error - invoke: ${JSON.stringify(data)}`
++              error: { message: `Error - invoke: ${JSON.stringify(payload)}` }
+             });
+           }
+         },
+@@ -1433,6 +1317,11 @@ function fetchEntryModule(publicUrl, env) {
+     };
+   });
+ }
++function isViteInvokePayload(payload) {
++  return Boolean(
++    payload && typeof payload === "object" && "name" in payload && "data" in payload && Array.isArray(payload.data)
++  );
++}
+ export {
+   worker_entry_default as default
+ };
+diff --git a/package.json b/package.json
+index b4d22e175432a6d90d503c9e8063542591f1fc46..430ca59fafb2a64d547b71b228421a48c1bf4b18 100644
+--- a/package.json
++++ b/package.json
+@@ -48,7 +48,7 @@
+     "source-map": "^0.7.4",
+     "source-map-support": "^0.5.21",
+     "stack-trace": "^1.0.0-pre2",
+-    "undici": "7.21.0",
++    "undici": "7.24.0",
+     "ws": "^8.18.0"
+   },
+   "devDependencies": {
+@@ -64,10 +64,11 @@
+     "eventsource": "^3.0.5",
+     "eventsource-parser": "^2.0.1",
+     "tempy": "3.1.0",
++    "vite": "^8.0.1",
+     "vitest": "^3.2.4"
+   },
+   "peerDependencies": {
+-    "vite": "^6.2.1"
++    "vite": "^6.2.1 || ^7.0.0 || ^8.0.0"
+   },
+   "peerDependenciesMeta": {
+     "vite": {
