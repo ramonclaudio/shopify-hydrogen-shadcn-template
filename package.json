@@ -73,7 +73,7 @@
     "@react-router/fs-routes": "^7.13.2",
     "@shopify/cli": "3.92.1",
     "@shopify/hydrogen-codegen": "^0.3.3",
-    "@shopify/mini-oxygen": "^4.0.1",
+    "@shopify/mini-oxygen": "4.0.1",
     "@shopify/oxygen-workers-types": "^4.2.0",
     "@shopify/prettier-config": "^1.1.4",
     "@tailwindcss/vite": "^4.2.2",
@@ -95,7 +95,7 @@
     "globals": "^15.14.0",
     "prettier": "^3.8.1",
     "typescript": "^6.0.2",
-    "vite": "^8.0.3"
+    "vite": "^8.0.0"
   },
   "pnpm": {
     "patchedDependencies": {
