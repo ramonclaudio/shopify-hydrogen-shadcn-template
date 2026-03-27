@@ -1,0 +1,13 @@
+diff --git a/package.json b/package.json
+index b0cacc5083efdda2417b0535e38f83fe56d427ec..71171ce7c2cfe890fd5bd9f36dd5a6ebfe58fac1 100644
+--- a/package.json
++++ b/package.json
+@@ -144,7 +144,7 @@
+   "peerDependencies": {
+     "react": "^18.3.1 || ~19.0.3 || ~19.1.4 || ^19.2.3",
+     "react-dom": "^18.3.1 || ~19.0.3 || ~19.1.4 || ^19.2.3",
+-    "vite": "^5.1.0 || ^6.2.1"
++    "vite": "^5.1.0 || ^6.2.1 || ^7.0.0 || ^8.0.0"
+   },
+   "dependencies": {
+     "@google/model-viewer": "^4.0.0",

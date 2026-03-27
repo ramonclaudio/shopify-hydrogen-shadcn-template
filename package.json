@@ -100,7 +100,8 @@
   "pnpm": {
     "patchedDependencies": {
       "@shopify/hydrogen@2026.1.2": "patches/@shopify__hydrogen@2026.1.2.patch",
-      "@shopify/mini-oxygen@4.0.1": "patches/@shopify__mini-oxygen@4.0.1.patch"
+      "@shopify/mini-oxygen@4.0.1": "patches/@shopify__mini-oxygen@4.0.1.patch",
+      "@shopify/hydrogen-react@2026.1.1": "patches/@shopify__hydrogen-react@2026.1.1.patch"
     }
   },
   "engines": {
