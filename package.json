@@ -2,14 +2,14 @@
   "name": "shopify-hydrogen-shadcn-template",
   "version": "2025.7.0",
   "description": "Modern Shopify storefront built with Hydrogen, React Router 7, and shadcn/ui",
-  "author": "RMNCLDYO",
+  "author": "Ramon Claudio",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/RMNCLDYO/shopify-hydrogen-shadcn-template.git"
+    "url": "https://github.com/ramonclaudio/shopify-hydrogen-shadcn-template.git"
   },
   "bugs": {
-    "url": "https://github.com/RMNCLDYO/shopify-hydrogen-shadcn-template/issues"
+    "url": "https://github.com/ramonclaudio/shopify-hydrogen-shadcn-template/issues"
   },
   "keywords": [
     "shopify",

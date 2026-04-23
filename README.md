@@ -12,7 +12,7 @@ Modern Shopify storefront built with Hydrogen, React Router 7, and shadcn/ui. Ma
 ### 1. Clone and Install
 
 ```bash
-git clone https://github.com/RMNCLDYO/shopify-hydrogen-shadcn-template.git
+git clone https://github.com/ramonclaudio/shopify-hydrogen-shadcn-template.git
 cd shopify-hydrogen-shadcn-template
 npm install
 ```
